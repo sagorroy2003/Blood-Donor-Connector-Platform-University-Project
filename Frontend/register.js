@@ -36,6 +36,7 @@ registerForm.addEventListener('submit', async (event) => {
         password: document.getElementById('password').value,
         date_of_birth: document.getElementById('dob').value,
         contact_phone: document.getElementById('phone').value,
+        city: document.getElementById('city').value,
         blood_type_id: bloodTypeSelect.value
     };
 

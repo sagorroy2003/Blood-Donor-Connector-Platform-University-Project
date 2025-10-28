@@ -20,11 +20,51 @@
         </div>
 
         <br>
+
         <button id="logout-button">Logout</button>
+
+        <hr> <h2>Create a New Blood Request</h2>
+        <form id="request-form">
+            <label for="request-city">City (e.g., Noakhali):</label>
+            <input type="text" id="request-city"
+                placeholder="Enter the hospital's city" required>
+
+            <label for="request-blood-type">Blood Type Needed:</label>
+            <select id="request-blood-type" required>
+                <option value>Loading blood types...</option>
+            </select>
+
+            <label for="request-reason">Reason (e.g., Surgery):</label>
+            <textarea id="request-reason" rows="3"></textarea>
+
+            <button type="submit">Submit Request</button>
+        </form>
+
+        <p id="request-message"></p>
+
+        <hr>
+
+        <h2>My Active Requests</h2>
+        <div id="my-requests-list">
+            <p>Loading...</p>
+        </div>
+
+        <hr>
+
+        <h2>Available Requests Near Me</h2>
+        <div id="available-requests-list">
+            <p>Loading...</p>
+        </div>
+
+        <hr>
+
+        <h2>My Donation History</h2>
+        <div id="donation-history-list">
+            <p>Loading...</p>
+        </div>
 
         <script src="dashboard.js"></script>
     </body>
 </html>
 
 <!--  -->
-
