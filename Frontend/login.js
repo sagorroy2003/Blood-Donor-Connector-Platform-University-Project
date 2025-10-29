@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:3001";
+const API_URL = "https://blood-donor-backend-mj35.onrender.com";
 
 const loginForm = document.getElementById("login-form");
 const messageElement = document.getElementById("message");
