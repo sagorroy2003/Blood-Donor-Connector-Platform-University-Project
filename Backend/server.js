@@ -1,8 +1,9 @@
+require("dotenv").config();
+//const fs = require('fs'); 
 const sgMail = require('@sendgrid/mail');
 //sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const authMiddleware = require('./authMiddleware');
-require("dotenv").config(); 
-console.log("SENDGRID_API_KEY loaded:", process.env.SENDGRID_API_KEY);
+//console.log("SENDGRID_API_KEY loaded:", process.env.SENDGRID_API_KEY);
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2/promise"); // Use the 'promise' version
@@ -16,13 +17,32 @@ const port = 3001; // Port for your backend
 app.use(cors()); // CRITICAL: This allows your frontend to make requests
 app.use(express.json()); // Allows server to read JSON
 
-// --- Database Connection Pool ---
+// --- Database Connection Pool for TiDB ---
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    port: process.env.DB_PORT || 4000,
+    ssl: {
+        // This enables SSL/TLS. For TiDB Cloud, this is required.
+        // If you need to use the CA file, uncomment the line below.
+        // ca: fs.readFileSync(process.env.CA)
+    },
+    connectionLimit: 10,
+    waitForConnections: true,
+    queueLimit: 0
 });
+
+// Test the connection
+pool.getConnection()
+    .then(connection => {
+        console.log('Successfully connected to the TiDB database!');
+        connection.release();
+    })
+    .catch(err => {
+        console.error('Error connecting to TiDB:', err);
+    });
 
 // --- YOUR FIRST API ENDPOINT ---
 app.get("/api/bloodtypes", async (req, res) => {
