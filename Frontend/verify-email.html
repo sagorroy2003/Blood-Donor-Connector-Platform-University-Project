@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verify Email - Blood Donor</title>
+        <style>
+        body { font-family: sans-serif; background: #222; color: #eee; padding: 20px; }
+        .message { padding: 15px; border-radius: 5px; margin-top: 20px; }
+        .success { background-color: #dff0d8; color: #3c763d; border: 1px solid #d6e9c6; }
+        .error { background-color: #f2dede; color: #a94442; border: 1px solid #ebccd1; }
+    </style>
+    </head>
+    <body>
+        <h1>Email Verification</h1>
+        <div id="verification-message">
+            <p>Verifying your email...</p>
+        </div>
+
+        <script>
+        // Use the same API_URL as your other frontend files
+        const API_URL = "https://blood-donor-backend-mj35.onrender.com";
+
+        const messageDiv = document.getElementById('verification-message');
+
+        async function verifyEmail() {
+            // Get the token from the URL query string
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            if (!token) {
+                messageDiv.innerHTML = '<p class="message error">No verification token found in the URL.</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/verify-email?token=${token}`);
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message);
+                }
+
+                // Success
+                messageDiv.innerHTML = `<p class="message success">${result.message}</p><p><a href="login.html">Click here to Login</a></p>`;
+
+            } catch (err) {
+                messageDiv.innerHTML = `<p class="message error">Verification failed: ${err.message}</p>`;
+            }
+        }
+
+        // Run verification when the page loads
+        verifyEmail();
+    </script>
+    </body>
+</html>

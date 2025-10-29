@@ -1,0 +1,169 @@
+/* General Body Styles (Dark Theme) */
+body {
+    font-family: sans-serif;
+    background-color: #222;
+    /* Dark background */
+    color: #eee;
+    /* Light text */
+    margin: 0;
+    padding: 20px;
+    line-height: 1.6;
+}
+
+h1, h2 {
+    color: #eee;
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+a {
+    color: #4da6ff;
+    /* Light blue links */
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #555;
+    margin: 30px 0;
+}
+
+/* Form Styles */
+form {
+    display: flex;
+    flex-direction: column;
+    max-width: 400px;
+    /* Make forms a bit wider */
+    margin-bottom: 20px;
+    background-color: #333;
+    /* Slightly lighter background for forms */
+    padding: 20px;
+    border-radius: 8px;
+}
+
+label {
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+input[type="tel"],
+select,
+textarea {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #444;
+    /* Darker input background */
+    color: #eee;
+    /* Light text in inputs */
+    font-size: 1rem;
+}
+
+textarea {
+    resize: vertical;
+    /* Allow vertical resizing */
+}
+
+/* General Button Styles */
+button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Form Submit Button */
+form button[type="submit"] {
+    background-color: #5cb85c;
+    /* Green */
+    color: white;
+    margin-top: 10px;
+}
+
+form button[type="submit"]:hover:not(:disabled) {
+    background-color: #4cae4c;
+}
+
+/* Logout Button */
+#logout-button {
+    background-color: #d9534f;
+    /* Red */
+    color: white;
+}
+
+#logout-button:hover {
+    background-color: #c9302c;
+}
+
+/* Action Buttons within Lists */
+.accept-button,
+.fulfill-button,
+.cancel-donor-button {
+    background-color: #337ab7;
+    /* Blue */
+    color: white;
+    margin-right: 5px;
+    /* Add some space between buttons */
+}
+
+.accept-button:hover:not(:disabled),
+.fulfill-button:hover:not(:disabled),
+.cancel-donor-button:hover:not(:disabled) {
+    background-color: #286090;
+}
+
+.cancel-donor-button {
+    background-color: #f0ad4e;
+    /* Orange for cancel */
+}
+
+.cancel-donor-button:hover:not(:disabled) {
+    background-color: #ec971f;
+}
+
+/* Message Areas */
+#message,
+#request-message,
+.request-action-message,
+.accept-message {
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+/* Request/History Card Styles */
+.request-card,
+.history-card {
+    background-color: #333;
+    border: 1px solid #555;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+}
+
+.request-card strong,
+.history-card strong {
+    color: #fff;
+    /* Make important text slightly brighter */
+}
+
+.request-card p,
+.history-card p {
+    margin: 5px 0;
+}

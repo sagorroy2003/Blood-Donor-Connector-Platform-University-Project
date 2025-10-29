@@ -58,9 +58,15 @@ registerForm.addEventListener('submit', async (event) => {
         }
 
         // Success!
-        messageElement.textContent = 'Registration successful! You can now log in.';
+        messageElement.textContent = 'Registration successful! Redirecting to login...';
         messageElement.style.color = 'green';
         registerForm.reset();
+
+        // Wait 2 seconds, then redirect to login page
+        // setTimeout(() => {
+        //     window.location.href = "login.html";
+        // }, 2000); // 2000 milliseconds = 2 seconds
+        // // ---------------
 
     } catch (err) {
         messageElement.textContent = `Error: ${err.message}`;

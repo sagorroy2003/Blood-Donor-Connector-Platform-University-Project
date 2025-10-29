@@ -28,17 +28,19 @@ loginForm.addEventListener("submit", async (event) => {
         }
 
         // SUCCESS! We got a token.
-        messageElement.textContent = "Login successful!";
+        messageElement.textContent = "Login successful! Redirecting to dashboard...";
         messageElement.style.color = "green";
 
         // Store the token in the browser's local storage
         localStorage.setItem("token", result.token);
 
-        // Optional: Log the token to see it
-        console.log("Login Token:", result.token);
+        // redirect to a dashboard page here
+        setTimeout(() => {
+            window.location.href = "dashboard.html";
+        }, 1500);
 
-        // You would redirect to a dashboard page here
-        // window.location.href = 'dashboard.html';
+
+
     } catch (err) {
         messageElement.textContent = `Error: ${err.message}`;
         messageElement.style.color = "red";
