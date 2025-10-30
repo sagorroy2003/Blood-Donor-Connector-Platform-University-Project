@@ -1,5 +1,5 @@
 require("dotenv").config();
-const crypto = require("crypto"); // <-- FIX 1: ADD THIS IMPORT
+const crypto = require("crypto"); 
 const sgMail = require("@sendgrid/mail");
 const authMiddleware = require("./authMiddleware");
 const express = require("express");
@@ -86,8 +86,8 @@ app.post("/api/register", async (req, res) => {
                 await connection.rollback();
                 connection.release();
                 return res.status(400).json({ message: 'Email already exists and is verified.' });
-            } 
-            
+            }
+
             // Case 2: Email exists AND IS NOT VERIFIED (The problem case)
             // Update the stale record with the new user's info
             console.log(`Updating stale, unverified user record for: ${email}`);
@@ -98,10 +98,10 @@ app.post("/api/register", async (req, res) => {
                 WHERE user_id = ?
             `;
             await connection.query(updateSql, [
-                name, passwordHash, date_of_birth, blood_type_id || null, contact_phone || null, city, 
+                name, passwordHash, date_of_birth, blood_type_id || null, contact_phone || null, city,
                 verificationToken, existingUser.user_id
             ]);
-            
+
         } else {
             // Case 3: Email does not exist. Create a new user.
             const insertSql = `
@@ -401,95 +401,103 @@ app.get("/api/requests/available", authMiddleware, async (req, res) => {
     }
 });
 
-// POST Accept Request (Protected, Donor Action)
-app.post(
-    "/api/requests/:requestId/accept",
-    authMiddleware,
-    async (req, res) => {
-        const connection = await pool.getConnection();
-        try {
-            await connection.beginTransaction();
-            const donor_id = req.user.id;
-            const request_id = req.params.requestId;
+// --- NEW: PROTECTED API ENDPOINT FOR A DONOR TO ACCEPT A REQUEST ---
+app.post('/api/requests/:requestId/accept', authMiddleware, async (req, res) => {
+    try {
+        const donor_id = req.user.id; // Get donor's ID from token
+        const request_id = req.params.requestId; // Get request ID from the URL
 
+        // --- Transaction Start ---
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        try {
+            // 1. Check if the request is still 'active'
             const [requestRows] = await connection.query(
-                "SELECT status, recipient_id FROM BloodRequests WHERE request_id = ?",
+                'SELECT status, recipient_id FROM BloodRequests WHERE request_id = ?', // Also get recipient_id
                 [request_id]
             );
-            if (!requestRows[0] || requestRows[0].status !== "active") {
-                await connection.rollback();
+
+            if (!requestRows[0] || requestRows[0].status !== 'active') {
+                await connection.rollback(); // Undo transaction
                 connection.release();
-                return res
-                    .status(400)
-                    .json({ message: "Request is no longer active or does not exist." });
+                return res.status(400).json({ message: 'Request is no longer active or does not exist.' });
             }
-            const recipient_id = requestRows[0].recipient_id; // Get recipient ID
 
+            const recipient_id = requestRows[0].recipient_id; // Get the recipient's ID
+
+            // 2. Update the BloodRequest status to 'on_hold'
             await connection.query(
-                "UPDATE BloodRequests SET status = ? WHERE request_id = ?",
-                ["on_hold", request_id]
+                'UPDATE BloodRequests SET status = ? WHERE request_id = ?',
+                ['on_hold', request_id]
             );
-            const notificationSql = `
-            INSERT INTO RequestNotifications (request_id, donor_id, status) VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE status = ?
-        `;
-            await connection.query(notificationSql, [
-                request_id,
-                donor_id,
-                "accepted",
-                "accepted",
-            ]);
 
-            // --- Optional: Notify Recipient ---
+            // 3. Create or Update the RequestNotification for this donor/request
+            const notificationSql = `
+                INSERT INTO RequestNotifications (request_id, donor_id, status) 
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE status = ?
+            `;
+            await connection.query(notificationSql, [request_id, donor_id, 'accepted', 'accepted']);
+
+            // --- Notify the RECIPIENT that a donor has accepted ---
             try {
-                const [recipientData] = await connection.query(
-                    "SELECT email, name FROM Users WHERE user_id = ?",
-                    [recipient_id]
-                );
-                const [donorData] = await connection.query(
-                    "SELECT name, contact_phone FROM Users WHERE user_id = ?",
-                    [donor_id]
-                );
+                // Get recipient's email/name
+                const [recipientData] = await connection.query('SELECT email, name FROM Users WHERE user_id = ?', [recipient_id]);
+                // Get donor's name/phone
+                const [donorData] = await connection.query('SELECT name, contact_phone FROM Users WHERE user_id = ?', [donor_id]);
+
                 if (recipientData.length > 0 && donorData.length > 0) {
+                    // Define the frontend URL
+                    const frontendUrl = process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`;
+
                     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
                     const emailMessage = {
                         to: recipientData[0].email,
                         from: process.env.SENDGRID_FROM_EMAIL,
-                        subject: "A Donor Has Accepted Your Blood Request!",
-                        html: `<p>Hi ${recipientData[0].name},</p><p>Good news! Donor ${donorData[0].name
-                            } has accepted your blood request. You can contact them at: ${donorData[0].contact_phone || "Not Provided"
-                            }. Please coordinate the donation.</p>`,
+                        subject: 'A Donor Has Accepted Your Blood Request!',
+                        html: `
+                            <p>Hi ${recipientData[0].name},</p>
+                            <p>Good news! Donor <strong>${donorData[0].name}</strong> has accepted your blood request.</p>
+                            <p>You can contact them at: <strong>${donorData[0].contact_phone || 'Not Provided'}</strong>. Please coordinate the donation.</p>
+                            
+                            <hr>
+                            <p><strong>Important:</strong> After you have successfully received the donation, please log in to your dashboard and mark the request as 'Fulfilled'. This will update the donor's history and eligibility.</p>
+                            <p><a href="${frontendUrl}/dashboard.html">Go to Your Dashboard</a></p>
+                        `, // <-- UPDATED EMAIL HTML
                     };
-                    sgMail
-                        .send(emailMessage)
-                        .catch((err) =>
-                            console.error("Error notifying recipient:", err.toString())
-                        );
+
+                    sgMail.send(emailMessage)
+                        .then(() => console.log('Acceptance notification sent to recipient: ' + recipientData[0].email))
+                        .catch((error) => console.error('SendGrid Error (notifying recipient):', error.toString()));
                 }
             } catch (notifyError) {
-                console.error("Failed to send recipient notification:", notifyError);
+                console.error('Error during recipient notification:', notifyError);
             }
-            // --- End Notify Recipient ---
+            // --- End Notification ---
 
+            // If all queries worked, commit the transaction
             await connection.commit();
             connection.release();
-            res.json({
-                message: "Request accepted successfully! Recipient has been notified.",
-            }); // Updated message
-        } catch (err) {
+
+            res.json({ message: 'Request accepted successfully! Please contact the recipient.' });
+
+        } catch (innerErr) {
+            // If any error occurred inside the transaction, roll back
             await connection.rollback();
             connection.release();
-            console.error("Error accepting request:", err);
-            res.status(500).json({ message: "Server error while accepting request" });
+            throw innerErr; // Re-throw the error to be caught by the outer catch
         }
+        // --- Transaction End ---
+
+    } catch (err) {
+        console.error('Error accepting request:', err);
+        res.status(500).json({ message: 'Server error while accepting request' });
     }
-);
+});
 
 // POST Cancel Own Acceptance (Protected, Donor Action)
-app.post(
-    "/api/requests/:requestId/cancel-acceptance",
-    authMiddleware,
-    async (req, res) => {
+app.post("/api/requests/:requestId/cancel-acceptance",authMiddleware,async (req, res) => {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
@@ -578,10 +586,7 @@ app.post(
 );
 
 // POST Cancel Accepted Donor (Protected, Recipient Action)
-app.post(
-    "/api/requests/:requestId/cancel-donor",
-    authMiddleware,
-    async (req, res) => {
+app.post("/api/requests/:requestId/cancel-donor",authMiddleware,async (req, res) => {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
@@ -680,10 +685,7 @@ app.post(
 );
 
 // POST Mark Request Fulfilled (Protected, Recipient Action)
-app.post(
-    "/api/requests/:requestId/fulfill",
-    authMiddleware,
-    async (req, res) => {
+app.post("/api/requests/:requestId/fulfill",authMiddleware,async (req, res) => {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
@@ -865,10 +867,7 @@ app.get("/api/requests/available", authMiddleware, async (req, res) => {
 });
 
 // --- NEW: PROTECTED API ENDPOINT FOR A DONOR TO ACCEPT A REQUEST ---
-app.post(
-    "/api/requests/:requestId/accept",
-    authMiddleware,
-    async (req, res) => {
+app.post("/api/requests/:requestId/accept",authMiddleware,async (req, res) => {
         try {
             const donor_id = req.user.id; // Get donor's ID from token
             const request_id = req.params.requestId; // Get request ID from the URL
@@ -946,10 +945,7 @@ app.post(
 );
 
 // --- NEW: PROTECTED API ENDPOINT FOR DONOR TO CANCEL THEIR ACCEPTANCE ---
-app.post(
-    "/api/requests/:requestId/cancel-acceptance",
-    authMiddleware,
-    async (req, res) => {
+app.post("/api/requests/:requestId/cancel-acceptance",authMiddleware,async (req, res) => {
         try {
             const donor_id = req.user.id; // Get donor's ID
             const request_id = req.params.requestId;
@@ -1014,10 +1010,7 @@ app.post(
 );
 
 // --- NEW: PROTECTED API ENDPOINT FOR RECIPIENT TO CANCEL AN ACCEPTED DONOR ---
-app.post(
-    "/api/requests/:requestId/cancel-donor",
-    authMiddleware,
-    async (req, res) => {
+app.post("/api/requests/:requestId/cancel-donor",authMiddleware,async (req, res) => {
         try {
             const recipient_id = req.user.id; // Get recipient's ID
             const request_id = req.params.requestId;
