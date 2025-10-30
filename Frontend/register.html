@@ -1,52 +1,85 @@
-
 <!-- -------------------------------------------------------------------------------- -->
 
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Register - Blood Donor</title>
 
-        <link rel="stylesheet" href="style.css">
-        
-    </head>
-    <body>
-        <div class="container">
-            <h1>Create Your Account</h1>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Blood Donor</title>
 
-            <form id="register-form">
-                <label for="name">Name:</label>
-                <input type="text" id="name" required>
+    <link rel="stylesheet" href="style.css">
 
-                <label for="email">Email:</label>
-                <input type="email" id="email" required>
+</head>
 
-                <label for="password">Password:</label>
-                <input type="password" id="password" required>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="logo"><a href="dashboard.html"> Blood
+                    Donor</a></div>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="register.html">Register</a></li>
+                <li><a href="login.html">Login</a></li>
+                <li><a href="forgot-password.html">Forgot Password</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <h1>Create Your Account</h1>
 
-                <label for="dob">Date of Birth:</label>
-                <input type="date" id="dob" required>
+        <form id="register-form">
+            <label for="name">Name:</label>
+            <input type="text" id="name" required>
 
-                <label for="phone">Phone Number:</label>
-                <input type="tel" id="phone" required>
+            <label for="email">Email:</label>
+            <input type="email" id="email" required>
 
-                <label for="city">City (e.g., Noakhali):</label>
-                <input type="text" id="city" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" required>
 
-                <label for="blood-type">Blood Type:</label>
-                <select id="blood-type" required>
-                    <option value>Loading...</option>
-                </select>
+            <label for="dob">Date of Birth:</label>
+            <input type="date" id="dob" required>
 
-                <button type="submit">Register</button>
-            </form>
+            <label for="phone">Phone Number:</label>
+            <input type="tel" id="phone" required>
 
-            <p id="message"></p>
+            <label for="city">City (e.g., Noakhali):</label>
+            <input type="text" id="city" required>
 
-            <p>Already have an account? <a href="login.html">Login here</a></p>
+            <label for="blood-type">Blood Type:</label>
+            <select id="blood-type" required>
+                <option value>Loading...</option>
+            </select>
 
-            <script src="register.js"></script>
-        </div>
-    </body>
+            <button type="submit">Register</button>
+        </form>
+
+        <p id="message"></p>
+
+        <p>Already have an account? <a href="login.html">Login here</a></p>
+
+        <script src="register.js"></script>
+    </div>
+
+    <footer>
+        <p>© 2025 Blood Donor Connector | Made with ❤️ to save lives</p>
+    </footer>
+
+    <script>
+        const hamburger = document.querySelector('.hamburger');
+        const navLinks = document.querySelector('.nav-links');
+
+        hamburger.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+            hamburger.classList.toggle('open');
+        });
+    </script>
+</body>
+
 </html>

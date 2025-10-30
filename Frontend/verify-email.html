@@ -1,23 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verify Email - Blood Donor</title>
-        <style>
-        body { font-family: sans-serif; background: #222; color: #eee; padding: 20px; }
-        .message { padding: 15px; border-radius: 5px; margin-top: 20px; }
-        .success { background-color: #dff0d8; color: #3c763d; border: 1px solid #d6e9c6; }
-        .error { background-color: #f2dede; color: #a94442; border: 1px solid #ebccd1; }
-    </style>
-    </head>
-    <body>
-        <h1>Email Verification</h1>
-        <div id="verification-message">
-            <p>Verifying your email...</p>
-        </div>
 
-        <script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - Blood Donor</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #222;
+            color: #eee;
+            padding: 20px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="logo"><a href="dashboard.html"> Blood
+                    Donor</a></div>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="register.html">Register</a></li>
+                <li><a href="login.html">Login</a></li>
+                <li><a href="forgot-password.html">Forgot Password</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
+    <h1>Email Verification</h1>
+    <div id="verification-message">
+        <p>Verifying your email...</p>
+    </div>
+
+    <script>
         // Use the same API_URL as your other frontend files
         const API_URL = "https://blood-donor-backend-mj35.onrender.com";
 
@@ -52,5 +91,21 @@
         // Run verification when the page loads
         verifyEmail();
     </script>
-    </body>
+
+    <footer>
+        <p>© 2025 Blood Donor Connector | Made with ❤️ to save lives</p>
+    </footer>
+
+    <script>
+        const hamburger = document.querySelector('.hamburger');
+        const navLinks = document.querySelector('.nav-links');
+
+        hamburger.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+            hamburger.classList.toggle('open');
+        });
+    </script>
+
+</body>
+
 </html>
