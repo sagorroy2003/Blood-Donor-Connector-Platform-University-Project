@@ -58,14 +58,14 @@ registerForm.addEventListener('submit', async (event) => {
         }
 
         // Success!
-        messageElement.textContent = 'Registration successful! Redirecting to login...';
+        messageElement.textContent = 'Registration successful!';
         messageElement.style.color = 'green';
         registerForm.reset();
 
-        // Wait 2 seconds, then redirect to login page
+        // Wait ? seconds, then redirect to new page
         setTimeout(() => {
-            window.location.href = "login.html";
-        }, 1500); // 2000 milliseconds = 2 seconds
+            window.location.href = "check-email.html";
+        },600); // ? milliseconds = ? seconds
         // ---------------
 
     } catch (err) {
