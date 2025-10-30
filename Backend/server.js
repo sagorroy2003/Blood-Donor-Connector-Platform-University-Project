@@ -45,6 +45,13 @@ pool
 
 // --- API Endpoints ---
 
+// --- NEW: HEALTH CHECK ENDPOINT FOR RENDER ---
+app.get("/", (req, res) => {
+    res.status(200).json({ 
+        message: "Welcome to the Blood Donor Connector API! Service is running." 
+    });
+});
+
 // GET Blood Types
 app.get("/api/bloodtypes", async (req, res) => {
     try {
@@ -774,6 +781,102 @@ app.get("/api/donations/myhistory", authMiddleware, async (req, res) => {
     } catch (err) {
         console.error("Error fetching donation history:", err);
         res.status(500).json({ message: "Server error fetching donation history" });
+    }
+});
+
+// --- NEW: API ENDPOINT TO REQUEST A PASSWORD RESET ---
+app.post('/api/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        // 1. Find the user by email
+        const [rows] = await pool.query('SELECT user_id, name, is_verified FROM Users WHERE email = ?', [email]);
+        const user = rows[0];
+
+        // !! SECURITY: Always send a success message, even if no user is found.
+        // This prevents attackers from "guessing" which emails are registered.
+        if (!user || !user.is_verified) {
+            console.log(`Password reset attempt for non-existent or unverified email: ${email}`);
+            return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+        }
+
+        // 2. Generate a temporary reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        
+        // 3. Set an expiration time (e.g., 15 minutes from now)
+        const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+        // 4. Save the token and expiration time to the user's record
+        await pool.query(
+            'UPDATE Users SET verification_token = ?, reset_token_expires = ? WHERE user_id = ?',
+            [resetToken, expires, user.user_id]
+        );
+
+        // 5. Send the reset email
+        const frontendUrl = process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`;
+        const resetLink = `${frontendUrl}/reset-password.html?token=${resetToken}`;
+
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        const emailMessage = {
+            to: email,
+            from: process.env.SENDGRID_FROM_EMAIL,
+            subject: 'Your Password Reset Link',
+            html: `
+                <p>Hi ${user.name},</p>
+                <p>Someone (hopefully you) requested a password reset for your account. Please click the link below to set a new password. This link will expire in 15 minutes.</p>
+                <p><a href="${resetLink}">Reset Your Password</a></p>
+                <p>If you did not request this, you can safely ignore this email.</p>
+            `,
+        };
+
+        await sgMail.send(emailMessage);
+        console.log('Password reset email sent to ' + email);
+
+        res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+
+    } catch (err) {
+        console.error('Forgot password error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+
+// --- NEW: API ENDPOINT TO SET THE NEW PASSWORD ---
+app.post('/api/reset-password', async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+
+        if (!token || !newPassword) {
+            return res.status(400).json({ message: 'Token and new password are required.' });
+        }
+
+        // 1. Find the user by the token AND check if the token is still valid (not expired)
+        const [rows] = await pool.query(
+            'SELECT user_id FROM Users WHERE verification_token = ? AND reset_token_expires > NOW()',
+            [token]
+        );
+        
+        const user = rows[0];
+
+        if (!user) {
+            return res.status(400).json({ message: 'Password reset token is invalid or has expired.' });
+        }
+
+        // 2. Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(newPassword, salt);
+
+        // 3. Update the user's password and clear the reset token
+        await pool.query(
+            'UPDATE Users SET password_hash = ?, verification_token = NULL, reset_token_expires = NULL WHERE user_id = ?',
+            [passwordHash, user.user_id]
+        );
+
+        res.json({ message: 'Password has been reset successfully! You can now log in.' });
+
+    } catch (err) {
+        console.error('Reset password error:', err);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
