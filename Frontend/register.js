@@ -25,9 +25,17 @@ async function populateBloodTypes() {
     }
 }
 
+// --- 1. Get the submit button (add this line) ---
+const submitButton = registerForm.querySelector('button[type="submit"]');
+
 // 2. Listen for the form submission
 registerForm.addEventListener('submit', async (event) => {
     event.preventDefault(); // Stop the form from reloading the page
+
+    // --- 2. Disable the button and show feedback (add this) ---
+    submitButton.disabled = true;
+    submitButton.textContent = 'Processing...';
+    messageElement.textContent = ''; // Clear any old errors
 
     // Get all the values from the form
     const formData = {
@@ -54,6 +62,9 @@ registerForm.addEventListener('submit', async (event) => {
 
         if (!response.ok) {
             // If server sent an error (like "email exists")
+            // --- 3. Re-enable button on error (add this) ---
+            submitButton.disabled = false;
+            submitButton.textContent = 'Register';
             throw new Error(result.message);
         }
 
@@ -61,16 +72,22 @@ registerForm.addEventListener('submit', async (event) => {
         messageElement.textContent = 'Registration successful!';
         messageElement.style.color = 'green';
         registerForm.reset();
+        
+        // Button stays disabled on success because we are redirecting
 
         // Wait ? seconds, then redirect to new page
         setTimeout(() => {
             window.location.href = "check-email.html";
-        },600); // ? milliseconds = ? seconds
+        }, 600); // ? milliseconds = ? seconds
         // ---------------
 
     } catch (err) {
         messageElement.textContent = `Error: ${err.message}`;
         messageElement.style.color = 'red';
+        
+        // --- 4. Re-enable button on critical error (add this) ---
+        submitButton.disabled = false;
+        submitButton.textContent = 'Register';
     }
 });
 
