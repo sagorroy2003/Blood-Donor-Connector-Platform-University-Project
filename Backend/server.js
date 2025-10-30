@@ -58,109 +58,95 @@ app.get("/api/bloodtypes", async (req, res) => {
     }
 });
 
-// POST User Registration
+// --- UPDATE: API ENDPOINT FOR USER REGISTRATION ---
 app.post("/api/register", async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const {
-            name,
-            email,
-            password,
-            date_of_birth,
-            blood_type_id,
-            contact_phone,
-            city,
-        } = req.body;
+        const { name, email, password, date_of_birth, blood_type_id, contact_phone, city } = req.body;
 
-        // Basic validation (add more as needed)
         if (!name || !email || !password || !city) {
             await connection.rollback();
             connection.release();
-            return res.status(400).json({ message: "Missing required fields." });
+            return res.status(400).json({ message: 'Missing required fields.' });
         }
 
-        const [existingUser] = await connection.query(
-            "SELECT user_id FROM Users WHERE email = ?",
-            [email]
-        );
-        if (existingUser.length > 0) {
-            await connection.rollback();
-            connection.release();
-            return res.status(400).json({ message: "Email already exists" });
-        }
+        // 1. Check if email already exists
+        const [existingUserRows] = await connection.query('SELECT user_id, is_verified FROM Users WHERE email = ?', [email]);
+        const existingUser = existingUserRows[0];
 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-        const verificationToken = crypto.randomBytes(32).toString("hex");
+        const verificationToken = crypto.randomBytes(32).toString('hex');
 
-        const sql = `
-          INSERT INTO Users (name, email, password_hash, date_of_birth, blood_type_id, contact_phone, city, is_verified, verification_token)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        await connection.query(sql, [
-            name,
-            email,
-            passwordHash,
-            date_of_birth,
-            blood_type_id || null,
-            contact_phone || null,
-            city,
-            false,
-            verificationToken,
-        ]);
+        if (existingUser) {
+            // Case 1: Email exists AND IS VERIFIED
+            if (existingUser.is_verified) {
+                await connection.rollback();
+                connection.release();
+                return res.status(400).json({ message: 'Email already exists and is verified.' });
+            } 
+            
+            // Case 2: Email exists AND IS NOT VERIFIED (The problem case)
+            // Update the stale record with the new user's info
+            console.log(`Updating stale, unverified user record for: ${email}`);
+            const updateSql = `
+                UPDATE Users 
+                SET name = ?, password_hash = ?, date_of_birth = ?, blood_type_id = ?, 
+                    contact_phone = ?, city = ?, verification_token = ?, is_verified = FALSE
+                WHERE user_id = ?
+            `;
+            await connection.query(updateSql, [
+                name, passwordHash, date_of_birth, blood_type_id || null, contact_phone || null, city, 
+                verificationToken, existingUser.user_id
+            ]);
+            
+        } else {
+            // Case 3: Email does not exist. Create a new user.
+            const insertSql = `
+              INSERT INTO Users (name, email, password_hash, date_of_birth, blood_type_id, contact_phone, city, is_verified, verification_token)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            await connection.query(insertSql, [
+                name, email, passwordHash, date_of_birth, blood_type_id || null, contact_phone || null, city, false, verificationToken
+            ]);
+        }
 
-        // --- Send Verification Email ---
-        // Ensure VERCEL_FRONTEND_URL is set in your Render environment variables (e.g., https://your-app.vercel.app)
-        const frontendUrl =
-            process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`; // Fallback for local
+        // --- Send Verification Email (for both new and updated users) ---
+        const frontendUrl = process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`;
         const verificationLink = `${frontendUrl}/verify-email.html?token=${verificationToken}`;
 
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY); // <-- FIX 2: SET API KEY HERE
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         const emailMessage = {
             to: email,
             from: process.env.SENDGRID_FROM_EMAIL,
-            subject: "Verify Your Email for Blood Donor Connector",
+            subject: 'Verify Your Email for Blood Donor Connector',
             html: `
                 <p>Hi ${name},</p>
                 <p>Thank you for registering! Please click the link below to verify your email address:</p>
                 <p><a href="${verificationLink}">${verificationLink}</a></p>
-                <p>If you did not register, please ignore this email.</p>
+                <p>If you did not register for this, please ignore this email.</p>
             `,
         };
 
         try {
             await sgMail.send(emailMessage);
-            console.log("Verification email sent to " + email);
+            console.log('Verification email sent to ' + email);
         } catch (emailError) {
-            console.error(
-                "SendGrid Error during registration for " + email + ":",
-                emailError.toString()
-            );
-            // Log error but allow registration to proceed for now
+            console.error('SendGrid Error during registration for ' + email + ':', emailError.toString());
+            // Don't fail the whole transaction, but log the error
         }
         // --- End Send Email ---
 
         await connection.commit();
         connection.release();
-        res
-            .status(201)
-            .json({
-                message:
-                    "Registration successful! Please check your email to verify your account.",
-            });
+        res.status(201).json({ message: "Registration successful! Please check your email to verify your account." });
+
     } catch (err) {
         await connection.rollback();
         connection.release();
-        console.error("Error during registration:", err);
-        // Avoid sending detailed SQL errors to client
-        if (
-            err.code === "ER_NO_REFERENCED_ROW_2" ||
-            err.code === "ER_NO_REFERENCED_ROW"
-        ) {
-            return res.status(400).json({ message: "Invalid Blood Type selected." });
-        }
+        console.error('Error during registration:', err);
         res.status(500).json({ message: "Error registering user" });
     }
 });
