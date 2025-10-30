@@ -240,121 +240,103 @@ app.get("/api/profile", authMiddleware, async (req, res) => {
     }
 });
 
-// POST Create Blood Request (Protected)
+// --- UPDATE: PROTECTED API ENDPOINT TO CREATE A BLOOD REQUEST ---
 app.post("/api/requests", authMiddleware, async (req, res) => {
-    const connection = await pool.getConnection();
+    const connection = await pool.getConnection(); // Use connection for transaction
     try {
-        await connection.beginTransaction();
+        await connection.beginTransaction(); // Start transaction
 
         const { blood_type_id, reason, city } = req.body;
-        if (!blood_type_id || !city) {
-            await connection.rollback();
-            connection.release();
-            return res
-                .status(400)
-                .json({ message: "Blood type and city are required." });
-        }
-
         const recipient_id = req.user.id;
         const date_requested = new Date();
         const status = "active";
 
+        // 1. Insert the request (inside transaction)
         const insertSql = `
-          INSERT INTO BloodRequests (recipient_id, blood_type_id, city, reason, date_requested, status)
+          INSERT INTO BloodRequests 
+            (recipient_id, blood_type_id, city, reason, date_requested, status)
           VALUES (?, ?, ?, ?, ?, ?)
         `;
         const [insertResult] = await connection.query(insertSql, [
-            recipient_id,
-            blood_type_id,
-            city,
-            reason || null,
-            date_requested,
-            status,
+            recipient_id, blood_type_id, city, reason, date_requested, status
         ]);
-        const newRequestId = insertResult.insertId;
+        const newRequestId = insertResult.insertId; // Get the ID of the new request
 
-        // --- Notification Logic ---
+        // --- ADD NOTIFICATION LOGIC ---
+        // 2. Find eligible donors (inside transaction)
         const threeMonthsAgo = new Date();
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
         const findDonorsSql = `
-            SELECT user_id, email, name FROM Users
-            WHERE city = ? AND blood_type_id = ? AND user_id != ?
+            SELECT user_id, email, name 
+            FROM Users 
+            WHERE city = ? 
+              AND blood_type_id = ? 
+              AND user_id != ? 
               AND (last_donation_date IS NULL OR last_donation_date <= ?)
-              AND is_verified = TRUE  -- Only notify verified users
+              AND is_verified = TRUE
         `;
         const [eligibleDonors] = await connection.query(findDonorsSql, [
-            city,
-            blood_type_id,
-            recipient_id,
-            threeMonthsAgo,
+            city, blood_type_id, recipient_id, threeMonthsAgo
         ]);
 
+        // 3. Prepare and Send Emails
         if (eligibleDonors.length > 0) {
-            console.log(
-                `Found ${eligibleDonors.length} eligible donors. Preparing emails...`
-            );
-            const [recipientData] = await connection.query(
-                "SELECT name FROM Users WHERE user_id = ?",
-                [recipient_id]
-            );
-            const recipientName = recipientData[0]?.name || "Someone";
-            const [bloodTypeData] = await connection.query(
-                "SELECT type FROM BloodTypes WHERE blood_type_id = ?",
-                [blood_type_id]
-            );
-            const bloodTypeName = bloodTypeData[0]?.type || "Unknown";
+            console.log(`Found ${eligibleDonors.length} eligible donors. Preparing emails...`);
 
-            sgMail.setApiKey(process.env.SENDGRID_API_KEY); // Set key before loop
+            // Get recipient name and blood type for email content
+            const [recipientData] = await connection.query('SELECT name FROM Users WHERE user_id = ?', [recipient_id]);
+            const recipientName = recipientData[0]?.name || 'Someone';
+            const [bloodTypeData] = await connection.query('SELECT type FROM BloodTypes WHERE blood_type_id = ?', [blood_type_id]);
+            const bloodTypeName = bloodTypeData[0]?.type || 'Unknown';
+
+            // Get frontend URL from environment variable
+            const frontendUrl = process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`;
+
+            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
             for (const donor of eligibleDonors) {
                 const emailMessage = {
-          /* ... email content ... */ to: donor.email,
-                    from: process.env.SENDGRID_FROM_EMAIL,
+                    to: donor.email,
+                    from: process.env.SENDGRID_FROM_EMAIL, // Use your verified sender
                     subject: `Urgent Blood Request: ${bloodTypeName} needed in ${city}`,
-                    html: `<p>Hi ${donor.name
-                        },</p><p>${recipientName} urgently needs <strong>${bloodTypeName}</strong> blood in <strong>${city}</strong>.</p><p>Reason: ${reason || "Not specified"
-                        }</p><p>If you are available and eligible to donate, please log in to your account on the Blood Donor Connector platform to view and accept the request.</p><p>Thank you for your potential help!</p>`,
+                    html: `
+                        <p>Hi ${donor.name},</p>
+                        <p>${recipientName} urgently needs <strong>${bloodTypeName}</strong> blood in <strong>${city}</strong>.</p>
+                        <p>Reason: ${reason || 'Not specified'}</p>
+                        <p>If you are available and eligible to donate, please click the link below to log in, view, and accept the request:</p>
+                        <p><a href="${frontendUrl}/login.html">Log in to Your Account</a></p>
+                        <p>Thank you for your potential help!</p>
+                    `, // <-- LINK ADDED HERE
                 };
-                sgMail
-                    .send(emailMessage)
-                    .then(() => console.log("Email sent to " + donor.email))
-                    .catch((error) =>
-                        console.error(
-                            "SendGrid Error for " + donor.email + ":",
-                            error.toString()
-                        )
-                    );
 
+                // Send the email
+                sgMail.send(emailMessage)
+                    .then(() => console.log('Email sent to ' + donor.email))
+                    .catch((error) => console.error('SendGrid Error for ' + donor.email + ':', error.toString()));
+
+                // Create the notification record in the DB
                 const notificationSql = `
-                    INSERT INTO RequestNotifications (request_id, donor_id, status) VALUES (?, ?, ?)
-                    ON DUPLICATE KEY UPDATE status = ?
+                    INSERT INTO RequestNotifications (request_id, donor_id, status) 
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE status = ? 
                 `;
-                await connection.query(notificationSql, [
-                    newRequestId,
-                    donor.user_id,
-                    "sent",
-                    "sent",
-                ]);
+                await connection.query(notificationSql, [newRequestId, donor.user_id, 'sent', 'sent']);
             }
         } else {
             console.log("No eligible donors found for this request.");
         }
-        // --- End Notification Logic ---
+        // --- END NOTIFICATION LOGIC ---
 
-        await connection.commit();
+        await connection.commit(); // Commit transaction
         connection.release();
-        res.status(201).json({ message: "Blood request created successfully!" }); // Simpler message back
+        res.status(201).json({ message: 'Blood request created and notifications sent (if eligible donors found)!' });
+
     } catch (err) {
-        await connection.rollback();
+        await connection.rollback(); // Rollback on any error
         connection.release();
-        console.error("Error creating request or sending notifications:", err);
-        if (
-            err.code === "ER_NO_REFERENCED_ROW_2" ||
-            err.code === "ER_NO_REFERENCED_ROW"
-        ) {
-            return res.status(400).json({ message: "Invalid Blood Type selected." });
-        }
-        res.status(500).json({ message: "Server error while creating request" });
+        console.error('Error creating request or sending notifications:', err);
+        res.status(500).json({ message: 'Server error while creating request' });
     }
 });
 
