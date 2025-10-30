@@ -63,10 +63,10 @@ registerForm.addEventListener('submit', async (event) => {
         registerForm.reset();
 
         // Wait 2 seconds, then redirect to login page
-        // setTimeout(() => {
-        //     window.location.href = "login.html";
-        // }, 2000); // 2000 milliseconds = 2 seconds
-        // // ---------------
+        setTimeout(() => {
+            window.location.href = "login.html";
+        }, 1500); // 2000 milliseconds = 2 seconds
+        // ---------------
 
     } catch (err) {
         messageElement.textContent = `Error: ${err.message}`;
