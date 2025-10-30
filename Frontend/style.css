@@ -1,25 +1,72 @@
-/* General Body Styles (Dark Theme) */
+/* --- Base & Typography --- */
+:root {
+    --primary-color: #d9534f;
+    /* Blood Red */
+    --secondary-color: #337ab7;
+    /* Blue */
+    --success-color: #5cb85c;
+    /* Green */
+    --warning-color: #f0ad4e;
+    /* Orange */
+    --bg-dark: #1f1f1f;
+    /* Darker background */
+    --bg-medium: #2a2a2a;
+    /* Medium background (cards/forms) */
+    --bg-light: #3a3a3a;
+    /* Lighter background (inputs) */
+    --text-primary: #e0e0e0;
+    /* Main text */
+    --text-secondary: #aaaaaa;
+    /* Lighter text */
+    --border-color: #444444;
+    --link-color: #6c9eff;
+    --border-radius: 6px;
+}
+
 body {
-    font-family: sans-serif;
-    background-color: #222;
-    /* Dark background */
-    color: #eee;
-    /* Light text */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* Nicer font stack */
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
     margin: 0;
-    padding: 20px;
+    padding: 0;
+    /* Remove default padding */
     line-height: 1.6;
 }
 
+/* --- Layout Container --- */
+.container {
+    max-width: 960px;
+    /* Limit width on large screens */
+    margin: 20px auto;
+    /* Center the content */
+    padding: 0 20px;
+    /* Add padding inside container */
+}
+
+/* --- Headings & Links --- */
 h1, h2 {
-    color: #eee;
-    border-bottom: 1px solid #555;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--primary-color);
     padding-bottom: 10px;
+    margin-top: 40px;
+    /* Add space above headings */
     margin-bottom: 20px;
+    font-weight: 300;
+    /* Lighter heading */
+}
+
+h1 {
+    font-size: 2.5rem;
+    text-align: center;
+}
+
+h2 {
+    font-size: 1.8rem;
 }
 
 a {
-    color: #4da6ff;
-    /* Light blue links */
+    color: var(--link-color);
     text-decoration: none;
 }
 
@@ -29,26 +76,28 @@ a:hover {
 
 hr {
     border: none;
-    border-top: 1px solid #555;
-    margin: 30px 0;
+    border-top: 1px solid var(--border-color);
+    margin: 40px 0;
 }
 
-/* Form Styles */
+/* --- Forms --- */
 form {
-    display: flex;
-    flex-direction: column;
-    max-width: 400px;
-    /* Make forms a bit wider */
-    margin-bottom: 20px;
-    background-color: #333;
-    /* Slightly lighter background for forms */
-    padding: 20px;
-    border-radius: 8px;
+    background-color: var(--bg-medium);
+    padding: 25px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    max-width: 500px;
+    margin: 20px auto;
+    /* Center login/register forms */
 }
 
 label {
-    margin-bottom: 5px;
-    font-weight: bold;
+    display: block;
+    /* Make labels take full width */
+    margin-bottom: 8px;
+    font-weight: 600;
+    /* Slightly bolder labels */
+    color: var(--text-secondary);
 }
 
 input[type="text"],
@@ -58,112 +107,192 @@ input[type="date"],
 input[type="tel"],
 select,
 textarea {
-    margin-bottom: 15px;
-    padding: 10px;
-    border: 1px solid #555;
-    border-radius: 4px;
-    background-color: #444;
-    /* Darker input background */
-    color: #eee;
-    /* Light text in inputs */
+    width: 100%;
+    /* Make inputs take full width */
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--bg-light);
+    color: var(--text-primary);
     font-size: 1rem;
+    box-sizing: border-box;
+    /* Include padding and border in width */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 2px rgba(51, 122, 183, 0.3);
+    /* Subtle glow on focus */
 }
 
 textarea {
     resize: vertical;
-    /* Allow vertical resizing */
+    min-height: 80px;
 }
 
-/* General Button Styles */
+/* --- Buttons --- */
 button {
-    padding: 10px 15px;
+    display: inline-block;
+    /* Allow margins */
+    padding: 10px 20px;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     cursor: pointer;
     font-size: 1rem;
-    transition: background-color 0.2s ease;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.2s ease;
+    /* Smooth transition for hover */
+    margin: 5px 5px 5px 0;
+    /* Add consistent margin */
 }
 
 button:disabled {
     cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 0.5;
 }
 
-/* Form Submit Button */
 form button[type="submit"] {
-    background-color: #5cb85c;
-    /* Green */
+    background-color: var(--success-color);
     color: white;
+    width: 100%;
+    /* Make submit button full width */
     margin-top: 10px;
 }
 
 form button[type="submit"]:hover:not(:disabled) {
-    background-color: #4cae4c;
+    background-color: #4a9d4a;
+    /* Darker green */
+    transform: translateY(-1px);
+    /* Slight lift effect */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Logout Button */
 #logout-button {
-    background-color: #d9534f;
-    /* Red */
+    background-color: var(--primary-color);
     color: white;
+    float: right;
+    /* Position logout nicely */
 }
 
 #logout-button:hover {
     background-color: #c9302c;
+    /* Darker red */
 }
 
-/* Action Buttons within Lists */
+/* Action Buttons */
 .accept-button,
 .fulfill-button,
-.cancel-donor-button {
-    background-color: #337ab7;
-    /* Blue */
+.cancel-donor-button,
+.cancel-acceptance-button {
+    background-color: var(--secondary-color);
     color: white;
-    margin-right: 5px;
-    /* Add some space between buttons */
 }
 
 .accept-button:hover:not(:disabled),
 .fulfill-button:hover:not(:disabled),
-.cancel-donor-button:hover:not(:disabled) {
+.cancel-donor-button:hover:not(:disabled),
+.cancel-acceptance-button:hover:not(:disabled) {
     background-color: #286090;
+    /* Darker blue */
 }
 
-.cancel-donor-button {
-    background-color: #f0ad4e;
-    /* Orange for cancel */
+.fulfill-button {
+    background-color: var(--success-color);
 }
 
-.cancel-donor-button:hover:not(:disabled) {
+.fulfill-button:hover:not(:disabled) {
+    background-color: #4a9d4a;
+}
+
+.cancel-donor-button,
+.cancel-acceptance-button {
+    background-color: var(--warning-color);
+}
+
+.cancel-donor-button:hover:not(:disabled),
+.cancel-acceptance-button:hover:not(:disabled) {
     background-color: #ec971f;
+    /* Darker orange */
 }
 
-/* Message Areas */
+
+/* --- Message Areas --- */
 #message,
+/* Login/Register page messages */
 #request-message,
+/* Create request messages */
 .request-action-message,
+/* Messages inside request cards */
 .accept-message {
+    padding: 10px;
     margin-top: 15px;
+    border-radius: var(--border-radius);
+    text-align: center;
+}
+
+/* Specific message colors are handled by JS, but we can add defaults */
+#message, #request-message {
     font-weight: bold;
 }
 
-/* Request/History Card Styles */
+/* --- Cards (Requests, History) --- */
 .request-card,
 .history-card {
-    background-color: #333;
-    border: 1px solid #555;
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 8px;
+    background-color: var(--bg-medium);
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    /* Subtle shadow */
 }
 
 .request-card strong,
 .history-card strong {
-    color: #fff;
-    /* Make important text slightly brighter */
+    color: #ffffff;
+    /* Brighter white for emphasis */
 }
 
 .request-card p,
 .history-card p {
-    margin: 5px 0;
+    margin: 8px 0;
+    color: var(--text-secondary);
+    /* Lighter text for details */
+}
+
+.request-card p:first-of-type {
+    margin-top: 10px;
+    /* Add space after the main heading */
+}
+
+/* --- Profile Section --- */
+#profile {
+    background-color: var(--bg-medium);
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    margin-bottom: 30px;
+    overflow: hidden;
+    /* Clear the float from logout button */
+}
+
+#profile h2 {
+    margin-top: 0;
+    border-bottom: none;
+    /* Remove border from profile heading */
+}
+
+/* --- Utility Classes --- */
+.text-success {
+    color: var(--success-color);
+}
+
+.text-error {
+    color: var(--primary-color);
 }
