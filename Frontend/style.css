@@ -296,3 +296,15 @@ form button[type="submit"]:hover:not(:disabled) {
 .text-error {
     color: var(--primary-color);
 }
+
+/* In style.css */
+.delete-request-button {
+    background-color: #d9534f;
+    /* Red */
+    color: white;
+}
+
+.delete-request-button:hover:not(:disabled) {
+    background-color: #c9302c;
+    /* Darker red */
+}

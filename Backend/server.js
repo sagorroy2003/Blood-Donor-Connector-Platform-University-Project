@@ -1250,3 +1250,73 @@ app.get('/api/requests/accepted', authMiddleware, async (req, res) => {
         res.status(500).json({ message: 'Server error fetching accepted requests' });
     }
 });
+
+// --- NEW: PROTECTED API ENDPOINT FOR RECIPIENT TO DELETE THEIR OWN REQUEST ---
+app.delete('/api/requests/:requestId', authMiddleware, async (req, res) => {
+    try {
+        const recipient_id = req.user.id; // Recipient's ID from token
+        const request_id = req.params.requestId;
+
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        try {
+            // 1. Verify this recipient owns the request
+            const [requestRows] = await connection.query(
+                'SELECT recipient_id, status FROM BloodRequests WHERE request_id = ?',
+                [request_id]
+            );
+
+            if (!requestRows[0]) {
+                await connection.rollback();
+                connection.release();
+                return res.status(404).json({ message: 'Request not found.' });
+            }
+
+            if (requestRows[0].recipient_id !== recipient_id) {
+                await connection.rollback();
+                connection.release();
+                return res.status(403).json({ message: 'Forbidden: You do not own this request.' });
+            }
+            
+            // Optional: Only allow deletion if 'active' or 'on_hold'
+            // if (requestRows[0].status === 'fulfilled') {
+            //     await connection.rollback();
+            //     connection.release();
+            //     return res.status(400).json({ message: 'Cannot delete a fulfilled request.' });
+            // }
+
+            // 2. Delete all associated notifications (from RequestNotifications)
+            await connection.query(
+                'DELETE FROM RequestNotifications WHERE request_id = ?',
+                [request_id]
+            );
+
+            // 3. Delete all associated donation records (from Donations)
+            // (This is important for data integrity)
+            await connection.query(
+                'DELETE FROM Donations WHERE request_id = ?',
+                [request_id]
+            );
+
+            // 4. Now, delete the main blood request
+            await connection.query(
+                'DELETE FROM BloodRequests WHERE request_id = ?',
+                [request_id]
+            );
+
+            await connection.commit();
+            connection.release();
+            res.json({ message: 'Request deleted successfully.' });
+
+        } catch (innerErr) {
+            await connection.rollback();
+            connection.release();
+            throw innerErr;
+        }
+
+    } catch (err) {
+        console.error('Error deleting request:', err);
+        res.status(500).json({ message: 'Server error while deleting request' });
+    }
+});

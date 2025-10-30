@@ -131,21 +131,29 @@ async function fetchMyRequests() {
             const reqDiv = document.createElement("div");
             reqDiv.className = "request-card";
             let buttonsHTML = "";
+            let deleteButtonHTML = "";
 
-            // Show "Cancel Donor" and "Mark Fulfilled" buttons if the request is on hold
+            // Show specific action buttons if a donor has been accepted
             if (req.status === 'on_hold') {
                 buttonsHTML = `
                     <button class="fulfill-button" data-request-id="${req.request_id}">Mark as Fulfilled</button>
                     <button class="cancel-donor-button" data-request-id="${req.request_id}">Cancel Accepted Donor</button>
                 `;
             }
-            // TODO: Maybe add a general "Cancel Request" button if status is 'active' or 'on_hold'
+
+            // Show a "Delete Request" button for any request that isn't already fulfilled
+            if (req.status !== 'fulfilled') {
+                deleteButtonHTML = `<button class="delete-request-button" data-request-id="${req.request_id}">Delete Request</button>`;
+            }
 
             reqDiv.innerHTML = `
                 <strong>Blood Type: ${req.blood_type}</strong> (${req.city})
                 <p>Reason: ${req.reason || "N/A"}</p>
                 <p>Status: <strong>${req.status}</strong></p>
-                ${buttonsHTML}
+                <div class="button-group">
+                    ${buttonsHTML}
+                    ${deleteButtonHTML}
+                </div>
                 <p class="request-action-message" style="color: green; display: none;"></p>
             `;
             myRequestsListElement.appendChild(reqDiv);
@@ -239,13 +247,17 @@ myRequestsListElement.addEventListener('click', async (event) => {
     const button = event.target;
     const requestId = button.dataset.requestId;
     const token = localStorage.getItem('token');
-    const messageElement = button.nextElementSibling; // Assumes message <p> is directly after button
+    
+    // Find the message <p> tag inside this card
+    const messageElement = button.closest('.request-card').querySelector('.request-action-message');
 
     if (!requestId || !token) return; // Exit if no request ID or token
 
     let apiUrl = '';
+    let httpMethod = 'POST'; // Default to POST
     let successMessage = '';
     let buttonText = button.textContent; // Store original text
+    let isDelete = false;
 
     // Determine which button was clicked and set API URL
     if (button.classList.contains('cancel-donor-button')) {
@@ -256,8 +268,18 @@ myRequestsListElement.addEventListener('click', async (event) => {
         apiUrl = `${API_URL}/api/requests/${requestId}/fulfill`;
         successMessage = 'Request marked as fulfilled.';
         button.textContent = 'Marking...';
+    } else if (button.classList.contains('delete-request-button')) {
+        isDelete = true;
+        // Ask for confirmation before deleting
+        if (!confirm('Are you sure you want to permanently delete this request? This action cannot be undone.')) {
+            return; // Stop if user clicks cancel
+        }
+        apiUrl = `${API_URL}/api/requests/${requestId}`;
+        httpMethod = 'DELETE'; // Use the DELETE method
+        successMessage = 'Request deleted successfully.';
+        button.textContent = 'Deleting...';
     } else {
-        return; // Clicked something else in the list
+        return; // Clicked something else in the list (like text)
     }
 
     button.disabled = true;
@@ -265,20 +287,14 @@ myRequestsListElement.addEventListener('click', async (event) => {
 
     try {
         const response = await fetch(apiUrl, {
-            method: 'POST',
+            method: httpMethod, // Use POST or DELETE
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message);
 
-        // Success! Show message briefly and refresh the list
-        if (messageElement) {
-             messageElement.textContent = successMessage;
-             messageElement.style.color = 'green';
-             messageElement.style.display = 'block';
-        }
-        // Refresh the 'My Requests' list after a short delay to show the message
-        setTimeout(() => fetchMyRequests(), 1500);
+        // Success! Refresh the list
+        fetchMyRequests();
 
     } catch (err) {
         console.error(`Error processing action:`, err);
