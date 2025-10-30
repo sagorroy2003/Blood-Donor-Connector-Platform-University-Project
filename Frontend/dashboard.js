@@ -11,6 +11,7 @@ const requestBloodTypeSelect = document.getElementById("request-blood-type");
 const myRequestsListElement = document.getElementById("my-requests-list");
 const availableRequestsListElement = document.getElementById("available-requests-list");
 const donationHistoryListElement = document.getElementById("donation-history-list");
+const acceptedRequestsListElement = document.getElementById("accepted-requests-list");
 
 // --- Initial Page Load & Auth Check ---
 (async function () {
@@ -39,6 +40,7 @@ const donationHistoryListElement = document.getElementById("donation-history-lis
         populateRequestBloodTypes(); // Populate the form dropdown
         fetchMyRequests();          // Populate 'My Requests' list
         fetchAvailableRequests();   // Populate 'Available Requests' list
+        fetchAcceptedRequests();
         fetchDonationHistory();
 
     } catch (err) {
@@ -328,3 +330,81 @@ async function fetchDonationHistory() {
         donationHistoryListElement.innerHTML = `<p>Error loading donation history: ${err.message}</p>`;
     }
 }
+
+// --- NEW: FUNCTION TO FETCH ACCEPTED/PENDING REQUESTS ---
+async function fetchAcceptedRequests() {
+    const token = localStorage.getItem("token");
+    acceptedRequestsListElement.innerHTML = '<p>Loading...</p>';
+
+    try {
+        const response = await fetch(`${API_URL}/api/requests/accepted`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const requests = await response.json();
+        if (!response.ok) throw new Error(requests.message || 'Failed to fetch');
+
+        if (requests.length === 0) {
+            acceptedRequestsListElement.innerHTML = "<p>You have no pending accepted requests.</p>";
+            return;
+        }
+
+        acceptedRequestsListElement.innerHTML = ""; // Clear loading
+        requests.forEach(req => {
+            const div = document.createElement('div');
+            div.className = 'request-card accepted-card'; // Add specific class
+            div.innerHTML = `
+                <strong>${req.recipient_name} needs ${req.blood_type} in ${req.city}</strong>
+                <p>Reason: ${req.reason || "N/A"}</p>
+                <p>Date Requested: ${new Date(req.date_requested).toLocaleDateString()}</p>
+                <p><strong>Recipient Contact: ${req.recipient_phone || 'Not Provided'}</strong></p> 
+                <p>Status: Awaiting Donation (Request is ${req.request_status})</p>
+                <button class="cancel-acceptance-button" data-request-id="${req.request_id}">Cancel My Acceptance</button>
+                <p class="request-action-message" style="color: green; display: none;"></p> 
+            `; // Added recipient phone and cancel button
+            acceptedRequestsListElement.appendChild(div);
+        });
+
+    } catch (err) {
+        console.error("Error fetching accepted requests:", err);
+        acceptedRequestsListElement.innerHTML = `<p>Error loading accepted requests: ${err.message}</p>`;
+    }
+}
+
+// --- NEW: EVENT LISTENER FOR DONOR TO CANCEL THEIR ACCEPTANCE ---
+acceptedRequestsListElement.addEventListener('click', async (event) => {
+    if (event.target.classList.contains('cancel-acceptance-button')) {
+        const button = event.target;
+        const requestId = button.dataset.requestId;
+        const token = localStorage.getItem('token');
+        const messageElement = button.nextElementSibling;
+
+        if (!requestId || !token) return;
+
+        button.disabled = true;
+        button.textContent = 'Cancelling...';
+        if (messageElement) messageElement.style.display = 'none';
+
+        try {
+            const response = await fetch(`${API_URL}/api/requests/${requestId}/cancel-acceptance`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+
+            // Success! Refresh relevant lists
+            fetchAcceptedRequests(); // Refresh this list (item will disappear)
+            fetchAvailableRequests(); // Refresh available list (item might reappear if eligible)
+
+        } catch (err) {
+            console.error("Error cancelling acceptance:", err);
+            button.textContent = 'Cancel My Acceptance';
+            button.disabled = false;
+            if (messageElement) {
+                messageElement.textContent = `Error: ${err.message}`;
+                messageElement.style.color = 'red';
+                messageElement.style.display = 'block';
+            }
+        }
+    }
+});

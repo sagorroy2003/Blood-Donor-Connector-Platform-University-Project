@@ -1213,3 +1213,40 @@ app.get("/api/donations/myhistory", authMiddleware, async (req, res) => {
         res.status(500).json({ message: "Server error fetching donation history" });
     }
 });
+
+// --- NEW: PROTECTED API ENDPOINT TO GET DONOR'S ACCEPTED/PENDING REQUESTS ---
+app.get('/api/requests/accepted', authMiddleware, async (req, res) => {
+    try {
+        const donor_id = req.user.id; // Get the logged-in donor's ID
+
+        // Find requests where this donor's notification status is 'accepted'
+        // AND the main request status is still 'on_hold' (meaning not fulfilled or cancelled yet)
+        const sql = `
+            SELECT 
+                br.request_id, 
+                br.city, 
+                br.reason, 
+                br.date_requested, 
+                br.status AS request_status,
+                u_recipient.name AS recipient_name, 
+                u_recipient.contact_phone AS recipient_phone, -- Include recipient's phone!
+                bt.type AS blood_type
+            FROM RequestNotifications AS rn
+            JOIN BloodRequests AS br ON rn.request_id = br.request_id
+            JOIN Users AS u_recipient ON br.recipient_id = u_recipient.user_id
+            JOIN BloodTypes AS bt ON br.blood_type_id = bt.blood_type_id
+            WHERE rn.donor_id = ? 
+              AND rn.status = 'accepted'
+              AND br.status = 'on_hold' 
+            ORDER BY br.date_requested DESC
+        `;
+
+        const [acceptedRequests] = await pool.query(sql, [donor_id]);
+
+        res.json(acceptedRequests);
+
+    } catch (err) {
+        console.error('Error fetching accepted requests:', err);
+        res.status(500).json({ message: 'Server error fetching accepted requests' });
+    }
+});
