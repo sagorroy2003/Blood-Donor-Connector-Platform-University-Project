@@ -84,6 +84,10 @@ requestForm.addEventListener("submit", async (event) => {
         city: document.getElementById("request-city").value,
         blood_type_id: requestBloodTypeSelect.value,
         reason: document.getElementById("request-reason").value,
+        
+        // --- ADD THIS LINE ---
+        date_needed: document.getElementById("request-date").value,
+        // ---------------------
     };
 
     try {

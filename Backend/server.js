@@ -277,23 +277,39 @@ app.post("/api/requests", authMiddleware, async (req, res) => {
     try {
         await connection.beginTransaction(); // Start transaction
 
-        const { blood_type_id, reason, city } = req.body;
-        const recipient_id = req.user.id;
+        // 1. Get 'date_needed' from the request body
+        const { blood_type_id, reason, city, date_needed } = req.body;
+        const recipient_id = req.user.id; // Use req.user.id (as in your code)
         const date_requested = new Date();
         const status = "active";
 
-        // 1. Insert the request (inside transaction)
+        // --- Add validation for the new field ---
+        if (!blood_type_id || !city || !date_needed) {
+            await connection.rollback();
+            connection.release();
+            return res.status(400).json({ message: 'Missing required fields (city, blood type, or date needed).' });
+        }
+        // ----------------------------------------
+
+        // 2. Insert the request (inside transaction)
         const insertSql = `
           INSERT INTO BloodRequests 
-            (recipient_id, blood_type_id, city, reason, date_requested, status)
-          VALUES (?, ?, ?, ?, ?, ?)
+            (recipient_id, blood_type_id, city, reason, date_requested, status, date_needed)  /* 2. ADDED 'date_needed' COLUMN */
+          VALUES (?, ?, ?, ?, ?, ?, ?) /* 3. ADDED '?' PLACEHOLDER */
         `;
         const [insertResult] = await connection.query(insertSql, [
-            recipient_id, blood_type_id, city, reason, date_requested, status
+            recipient_id, 
+            blood_type_id, 
+            city, 
+            reason, 
+            date_requested, 
+            status,
+            date_needed // 4. ADDED 'date_needed' VARIABLE
         ]);
         const newRequestId = insertResult.insertId; // Get the ID of the new request
 
         // --- ADD NOTIFICATION LOGIC ---
+        // (This part of your code is perfect and remains unchanged)
         // 2. Find eligible donors (inside transaction)
         const threeMonthsAgo = new Date();
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
@@ -338,7 +354,7 @@ app.post("/api/requests", authMiddleware, async (req, res) => {
                         <p>If you are available and eligible to donate, please click the link below to log in, view, and accept the request:</p>
                         <p><a href="${frontendUrl}/login.html">Log in to Your Account</a></p>
                         <p>Thank you for your potential help!</p>
-                    `, // <-- LINK ADDED HERE
+                    `, 
                 };
 
                 // Send the email

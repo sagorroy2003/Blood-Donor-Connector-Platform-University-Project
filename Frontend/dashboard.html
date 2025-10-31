@@ -1,111 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Blood Donor</title>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Dashboard - Blood Donor</title>
 
-    <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="style.css">
 
-</head>
+    </head>
 
-<body>
-    <header>
-        <nav class="navbar">
-            <div class="logo"><a href="dashboard.html"> Blood
-                    Donor</a></div>
-            <ul class="nav-links">
-                <li><a href="dashboard.html">Dashboard</a></li>
-                <li><a href="register.html">Register</a></li>
-                <li><a href="login.html">Login</a></li>
-                <li><a href="forgot-password.html">Forgot Password</a></li>
-            </ul>
-            <div class="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
+    <body>
+        <header>
+            <nav class="navbar">
+                <div class="logo"><a href="dashboard.html"> Blood
+                        Donor</a></div>
+                <ul class="nav-links">
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="register.html">Register</a></li>
+                    <li><a href="login.html">Login</a></li>
+                    <li><a href="forgot-password.html">Forgot Password</a></li>
+                </ul>
+                <div class="hamburger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </nav>
+        </header>
+        <div class="container">
+            <h1>Your Dashboard</h1>
+
+            <div id="profile">
+                <h2>Welcome, <span id="user-name">Loading...</span></h2>
+                <p><strong>Email:</strong> <span id="user-email">...</span></p>
+                <p><strong>Phone:</strong> <span id="user-phone">...</span></p>
             </div>
-        </nav>
-    </header>
-    <div class="container">
-        <h1>Your Dashboard</h1>
 
-        <div id="profile">
-            <h2>Welcome, <span id="user-name">Loading...</span></h2>
-            <p><strong>Email:</strong> <span id="user-email">...</span></p>
-            <p><strong>Phone:</strong> <span id="user-phone">...</span></p>
+            <br>
+
+            <button id="logout-button">Logout</button>
+
+            <hr>
+            <h2>Create a New Blood Request</h2>
+            <form id="request-form">
+                <label for="request-city">City (e.g., Noakhali):</label>
+                <input type="text" id="request-city"
+                    placeholder="Enter the hospital's city" required>
+
+                <label for="request-blood-type">Blood Type Needed:</label>
+                <select id="request-blood-type" required>
+                    <option value>Loading blood types...</option>
+                </select>
+
+                <label for="request-date">Date Needed:</label>
+                <input type="date" id="request-date" required>
+
+                <label for="request-reason">Reason (e.g., Surgery):</label>
+                <textarea id="request-reason" rows="3"></textarea>
+
+                <button type="submit">Submit Request</button>
+            </form>
+
+            <p id="request-message"></p>
+
+            <hr>
+
+            <h2>My Active Requests</h2>
+            <div id="my-requests-list">
+                <p>Loading...</p>
+            </div>
+
+            <hr>
+
+            <h2>Available Requests Near Me</h2>
+            <div id="available-requests-list">
+                <p>Loading...</p>
+            </div>
+
+            <hr>
+
+            <h2>My Accepted Commitments (Pending Donations)</h2>
+            <div id="accepted-requests-list">
+                <p>Loading...</p>
+            </div>
+
+            <hr>
+
+            <h2>My Donation History</h2>
+            <div id="donation-history-list">
+                <p>Loading...</p>
+            </div>
+
+            <script src="dashboard.js"></script>
         </div>
 
-        <br>
+        <footer>
+            <p>© 2025 Blood Donor Connector | Made with ❤️ to save lives</p>
+        </footer>
 
-        <button id="logout-button">Logout</button>
+        <script>
+            const hamburger = document.querySelector('.hamburger');
+            const navLinks = document.querySelector('.nav-links');
 
-        <hr>
-        <h2>Create a New Blood Request</h2>
-        <form id="request-form">
-            <label for="request-city">City (e.g., Noakhali):</label>
-            <input type="text" id="request-city" placeholder="Enter the hospital's city" required>
+            hamburger.addEventListener('click', () => {
+                navLinks.classList.toggle('active');
+                hamburger.classList.toggle('open');
+            });
+        </script>
 
-            <label for="request-blood-type">Blood Type Needed:</label>
-            <select id="request-blood-type" required>
-                <option value>Loading blood types...</option>
-            </select>
+        <script>
+            // Sets the minimum date for the date picker to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('request-date').setAttribute('min', today);
+        </script>
 
-            <label for="request-reason">Reason (e.g., Surgery):</label>
-            <textarea id="request-reason" rows="3"></textarea>
-
-            <button type="submit">Submit Request</button>
-        </form>
-
-        <p id="request-message"></p>
-
-        <hr>
-
-        <h2>My Active Requests</h2>
-        <div id="my-requests-list">
-            <p>Loading...</p>
-        </div>
-
-        <hr>
-
-        <h2>Available Requests Near Me</h2>
-        <div id="available-requests-list">
-            <p>Loading...</p>
-        </div>
-
-        <hr>
-
-        <h2>My Accepted Commitments (Pending Donations)</h2>
-        <div id="accepted-requests-list">
-            <p>Loading...</p>
-        </div>
-
-        <hr>
-
-        <h2>My Donation History</h2>
-        <div id="donation-history-list">
-            <p>Loading...</p>
-        </div>
-
-        <script src="dashboard.js"></script>
-    </div>
-
-    <footer>
-        <p>© 2025 Blood Donor Connector | Made with ❤️ to save lives</p>
-    </footer>
-
-    <script>
-        const hamburger = document.querySelector('.hamburger');
-        const navLinks = document.querySelector('.nav-links');
-
-        hamburger.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            hamburger.classList.toggle('open');
-        });
-    </script>
-    
-</body>
+    </body>
 
 </html>
 
