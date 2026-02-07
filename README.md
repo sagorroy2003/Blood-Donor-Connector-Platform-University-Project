@@ -4,7 +4,7 @@
     <img src="Frontend/image/NSTU%20BLOOD.png" alt="Blood Connector Logo" width="120" height="120">
   </a>
 
-  <h3 align="center">🩸 Blood Donor Connector Platform</h3>
+  <h1 align="center">🩸 Blood Donor Connector Platform</h1>
 
   <p align="center">
     A modern, full-stack solution connecting blood seekers with eligible donors in real-time.
