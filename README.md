@@ -1,7 +1,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/sagorroy2003/Blood-Donor-Connector-Platform-University-Project">
-    <img src="image/NSTU%20BLOOD.png" alt="Blood Connector Logo" width="120" height="120">
+    <img src="Frontend/image/NSTU%20BLOOD.png" alt="Blood Connector Logo" width="120" height="120">
   </a>
 
   <h3 align="center">🩸 Blood Donor Connector Platform</h3>
@@ -69,16 +69,16 @@ This project leverages a modern, scalable "PERN-ish" stack hosted entirely on th
       <td align="center"><strong>Request Management</strong></td>
     </tr>
     <tr>
-      <td><img src="./image/dashboard1.png" width="400" alt="Dashboard View 1"></td>
-      <td><img src="./image/dashboard2.png" width="400" alt="Dashboard View 2"></td>
+      <td><img src="./Frontend/image/dashboard1.png" width="400" alt="Dashboard View 1"></td>
+      <td><img src="./Frontend/image/dashboard2.png" width="400" alt="Dashboard View 2"></td>
     </tr>
     <tr>
       <td align="center"><strong>Active Statistics</strong></td>
       <td align="center"><strong>New Request Form</strong></td>
     </tr>
     <tr>
-      <td><img src="./image/dashboard3.png" width="400" alt="Dashboard View 3"></td>
-      <td><img src="./image/request%20form.png" width="400" alt="Blood Request Form"></td>
+      <td><img src="./Frontend/image/dashboard3.png" width="400" alt="Dashboard View 3"></td>
+      <td><img src="./Frontend/image/request%20form.png" width="400" alt="Blood Request Form"></td>
     </tr>
   </table>
   <p><em>Real-time dashboard views and the updated blood request interface.</em></p>
@@ -132,7 +132,7 @@ To get a local copy up and running follow these simple steps.
 ## 👤 Contact
 
 <div align="center">
-  <img src="./image/NSTU%20BLOOD.png" alt="Blood Donor NSTU Logo" width="100">
+  <img src="./Frontend/image/NSTU%20BLOOD.png" alt="Blood Donor NSTU Logo" width="100">
   <br /> 
   <p align="center"> Built with ❤️ to serve the community at <strong>Noakhali Science and Technology University</strong> </p>
   
