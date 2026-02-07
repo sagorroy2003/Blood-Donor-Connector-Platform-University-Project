@@ -3,75 +3,75 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - Blood Donor-NSTU</title>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Register - Blood Donor-NSTU</title>
 
-    <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="style.css">
 
-</head>
+    </head>
 
-<body>
-    <header>
-        <nav class="navbar">
-            <div class="logo"><a href="dashboard.html"> Blood
-                    Donor-NSTU</a></div>
-            <ul class="nav-links">
-                <li><a href="dashboard.html">Dashboard</a></li>
-                <li><a href="register.html">Register</a></li>
-                <li><a href="login.html">Login</a></li>
-                <li><a href="forgot-password.html">Forgot Password</a></li>
-            </ul>
-            <div class="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <h1>Create Your Account</h1>
+    <body>
+        <header>
+            <nav class="navbar">
+                <div class="logo"><a href="dashboard.html"> Blood Donor-<span
+                            class="nstu-box">NSTU</span></a></div>
+                <ul class="nav-links">
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="register.html">Register</a></li>
+                    <li><a href="login.html">Login</a></li>
+                    <li><a href="forgot-password.html">Forgot Password</a></li>
+                </ul>
+                <div class="hamburger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </nav>
+        </header>
+        <div class="container">
+            <h1>Create Your Account</h1>
 
-        <form id="register-form">
-            <label for="name">Name:</label>
-            <input type="text" id="name" required>
+            <form id="register-form">
+                <label for="name">Name:</label>
+                <input type="text" id="name" required>
 
-            <label for="email">Email:</label>
-            <input type="email" id="email" required>
+                <label for="email">Email:</label>
+                <input type="email" id="email" required>
 
-            <label for="password">Password:</label>
-            <input type="password" id="password" required>
+                <label for="password">Password:</label>
+                <input type="password" id="password" required>
 
-            <label for="dob">Date of Birth:</label>
-            <input type="date" id="dob" required>
+                <label for="dob">Date of Birth:</label>
+                <input type="date" id="dob" required>
 
-            <label for="phone">Phone Number:</label>
-            <input type="tel" id="phone" required>
+                <label for="phone">Phone Number:</label>
+                <input type="tel" id="phone" required>
 
-            <label for="city">City (e.g., Noakhali):</label>
-            <input type="text" id="city" required>
+                <label for="city">City (e.g., Noakhali):</label>
+                <input type="text" id="city" required>
 
-            <label for="blood-type">Your Blood Type:</label>
-            <select id="blood-type" required>
-                <option value>Loading...</option>
-            </select>
+                <label for="blood-type">Your Blood Type:</label>
+                <select id="blood-type" required>
+                    <option value>Loading...</option>
+                </select>
 
-            <button type="submit">Register</button>
-        </form>
+                <button type="submit">Register</button>
+            </form>
 
-        <p id="message"></p>
+            <p id="message"></p>
 
-        <p>Already have an account? <a href="login.html">Login here</a></p>
+            <p>Already have an account? <a href="login.html">Login here</a></p>
 
-        <script src="register.js"></script>
-    </div>
+            <script src="register.js"></script>
+        </div>
 
-    <footer>
-        <p>© 2025 Blood Donor-NSTU | Made with 🤍 to save lives</p>
-    </footer>
+        <footer>
+            <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
+        </footer>
 
-    <script>
+        <script>
         const hamburger = document.querySelector('.hamburger');
         const navLinks = document.querySelector('.nav-links');
 
@@ -80,6 +80,6 @@
             hamburger.classList.toggle('open');
         });
     </script>
-</body>
+    </body>
 
 </html>
