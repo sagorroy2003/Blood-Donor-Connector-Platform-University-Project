@@ -1,46 +1,48 @@
-<br />
-<div align="center">
-  <a href="https://github.com/sagorroy2003/Blood-Donor-Connector-Platform-University-Project">
-    <img src="Frontend/image/NSTU%20BLOOD.png" alt="Blood Connector Logo" width="120" height="120">
-  </a>
-
+<p align="center">
+  <img src="Frontend/image/NSTU%20BLOOD.png" width="80" align="left" />
+  <img src="https://img.shields.io/github/last-commit/sagorroy2003/Blood-Donor-Connector-Platform-University-Project?style=flat-square" align="right" />
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" align="right" />
+  <br />
   <h1 align="center">🩸 Blood Donor Connector Platform</h1>
+  <p align="center"><em>A modern, full-stack solution connecting blood seekers with eligible donors in real-time.</em></p>
+</p>
 
-  <p align="center">
-    A modern, full-stack solution connecting blood seekers with eligible donors in real-time.
-    <br />
-    <br />
-    <a href="#-key-features"><strong>Explore the Features »</strong></a>
-    <br />
-    <br />
-    <a href="https://blood-donor-connector-platform-univ.vercel.app">View Frontend Demo</a>
-    ·
-    <a href="https://blood-donor-backend-mj35.onrender.com">View Backend API</a>
-    ·
-    <a href="https://github.com/sagorroy2003/Blood-Donor-Connector-Platform-University-Project/issues">Report Bug</a>
-  </p>
-</div>
+<br clear="both" />
+
+
+> [!CAUTION]
+> ### 🚀 RECRUITER FAST-PASS
+> **⚠️ Technical Note:** The registration system uses a **SendGrid Free Trial** which may have expired. If verification emails are not sending, **new account registration will not work.**
+>
+> Please use these pre-verified credentials to explore the full dashboard and donor features immediately:
+> 
+> 👤 **Email:** `sagor7roy@gmail.com`  
+> 🔑 **Password:** `sagorroy`
+> 
+> <a href="https://blood-donor-connector-platform-univ.vercel.app">
+>   <img src="https://img.shields.io/badge/OPEN_LIVE_DEMO-D32F2F?style=for-the-badge&logo=vercel&logoColor=white" />
+> </a>
+
+---
+
+## 📺 Product Walkthrough
 
 <div align="center">
-  <img src="https://img.shields.io/github/last-commit/sagorroy2003/Blood-Donor-Connector-Platform-University-Project?style=flat-square" alt="Last Commit">
-  <img src="https://img.shields.io/github/issues/sagorroy2003/Blood-Donor-Connector-Platform-University-Project?style=flat-square" alt="Open Issues">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License">
+  <img src="Frontend/image/walkthrough.gif" alt="Platform Walkthrough" width="800">
+  <p><em>A quick look at the Donor Dashboard and Real-time Request System.</em></p>
 </div>
-<br />
 
 ---
 
 ## 📖 About The Project
 
-This platform addresses the critical need for timely blood donations. It utilizes a distributed cloud architecture to ensure high availability and secure data handling, automating the process of finding eligible donors based on location, blood type, and donation history.
-
-
+This platform addresses the critical need for timely blood donations at **Noakhali Science and Technology University**. It utilizes a distributed cloud architecture to ensure high availability and secure data handling, automating the process of finding eligible donors based on location, blood type, and donation history.
 
 ### ✨ Key Features
 
 * 🔐 **Secure Authentication:** JWT-based login with Bcrypt password hashing.
 * ✅ **Email Verification:** Automated account activation via **SendGrid**.
-* 🧠 **Smart Eligibility Logic:** Filters donors based on a 3-month donation gap.
+* 🧠 **Smart Eligibility Logic:** Filters donors based on a strict 3-month donation gap.
 * 🔔 **Urgent Notifications:** Instant email alerts to eligible donors near the request location.
 * 📅 **Date-Specific Requests:** Seekers can specify exactly when blood is needed.
 * 🛡️ **Enterprise-Grade Database:** Powered by **TiDB Cloud** (Distributed SQL) with secure SSL connectivity.
@@ -88,7 +90,7 @@ This project leverages a modern, scalable "PERN-ish" stack hosted entirely on th
 
 ## 🚀 Getting Started
 
-To get a local copy up and running follow these simple steps.
+To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
 
@@ -100,7 +102,7 @@ To get a local copy up and running follow these simple steps.
 
 1. **Clone the repo**
     ```sh
-    git clone https://github.com/sagorroy2003/Blood-Donor-Connector-Platform-University-Project.git
+    git clone [https://github.com/sagorroy2003/Blood-Donor-Connector-Platform-University-Project.git](https://github.com/sagorroy2003/Blood-Donor-Connector-Platform-University-Project.git)
     ```
 2. **Install Backend Packages**
     ```sh
@@ -118,7 +120,6 @@ To get a local copy up and running follow these simple steps.
     JWT_SECRET=your_super_secret_key
     SENDGRID_API_KEY=SG.your_sendgrid_key
     SENDGRID_FROM_EMAIL=your_verified_sender_email
-    # Ensure CA certificate is present in Backend/certs/
     CA=./certs/isrgrootx1.pem
     VERCEL_FRONTEND_URL=[https://blood-donor-connector-platform-univ.vercel.app](https://blood-donor-connector-platform-univ.vercel.app)
     ```
