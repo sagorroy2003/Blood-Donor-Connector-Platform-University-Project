@@ -66,19 +66,19 @@ This project leverages a modern, scalable "PERN-ish" stack hosted entirely on th
   <table>
     <tr>
       <td align="center"><strong>User Overview</strong></td>
-      <td align="center"><strong>Request Management</strong></td>
-    </tr>
-    <tr>
-      <td><img src="./Frontend/image/dashboard1.png" width="400" alt="Dashboard View 1"></td>
-      <td><img src="./Frontend/image/dashboard2.png" width="400" alt="Dashboard View 2"></td>
-    </tr>
-    <tr>
-      <td align="center"><strong>Active Statistics</strong></td>
       <td align="center"><strong>New Request Form</strong></td>
     </tr>
     <tr>
-      <td><img src="./Frontend/image/dashboard3.png" width="400" alt="Dashboard View 3"></td>
+      <td><img src="./Frontend/image/dashboard1.png" width="400" alt="Dashboard View 1"></td>
       <td><img src="./Frontend/image/request%20form.png" width="400" alt="Blood Request Form"></td>
+    </tr>
+    <tr>
+      <td align="center"><strong>Active Statistics</strong></td>
+      <td align="center"><strong>Request Management</strong></td>
+    </tr>
+    <tr>
+      <td><img src="./Frontend/image/dashboard3.png" width="400" alt="Dashboard View 3"></td>
+      <td><img src="./Frontend/image/dashboard2.png" width="400" alt="Dashboard View 2"></td>
     </tr>
   </table>
   <p><em>Real-time dashboard views and the updated blood request interface.</em></p>
