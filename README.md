@@ -16,8 +16,8 @@
 >
 > Please use these pre-verified credentials to explore the full dashboard and donor features immediately:
 > 
-> 👤 **Email:** `sagor7roy@gmail.com`  
-> 🔑 **Password:** `sagorroy`
+> 👤 **Email:** `sagor2003roy@gmail.com`  
+> 🔑 **Password:** `sagorroy1`
 > 
 > <a href="https://blood-donor-connector-platform-univ.vercel.app">
 >   <img src="https://img.shields.io/badge/OPEN_LIVE_DEMO-D32F2F?style=for-the-badge&logo=vercel&logoColor=white" />
