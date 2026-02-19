@@ -803,6 +803,36 @@ app.post("/api/requests/:requestId/fulfill", authMiddleware, async (req, res) =>
 }
 );
 
+// ====================== PUBLIC ENDPOINT (No Login Required) ======================
+// Anyone can see active blood requests on the homepage
+// PUBLIC ENDPOINT - Anyone can see active requests (No login needed)
+app.get("/api/requests/public", async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                br.request_id,
+                br.city,
+                br.reason,
+                br.date_needed,
+                br.date_requested,
+                u.name AS recipient_name,
+                bt.type AS blood_type
+            FROM BloodRequests br
+            JOIN Users u ON br.recipient_id = u.user_id
+            JOIN BloodTypes bt ON br.blood_type_id = bt.blood_type_id
+            WHERE br.status = 'active'
+            ORDER BY br.date_requested DESC
+            LIMIT 8
+        `;
+
+        const [requests] = await pool.query(sql);
+        res.json(requests);
+    } catch (err) {
+        console.error("Public requests error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 // GET Donor's Donation History (Protected)
 app.get("/api/donations/myhistory", authMiddleware, async (req, res) => {
     try {
