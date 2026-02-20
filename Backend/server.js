@@ -228,6 +228,28 @@ app.post("/api/reset-password", async (req, res) => {
     }
 });
 
+// --- GET User Profile (Protected) ---
+app.get("/api/profile", authMiddleware, async (req, res) => {
+    try {
+        // req.user.id comes from your authMiddleware
+        const userId = req.user.id; 
+        
+        const [rows] = await pool.query(
+            "SELECT user_id, name, email, date_of_birth, contact_phone, city, last_donation_date FROM Users WHERE user_id = ?",
+            [userId]
+        );
+        
+        if (!rows[0]) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        res.json(rows[0]);
+    } catch (err) {
+        console.error("Profile fetch error:", err);
+        res.status(500).json({ message: "Server error fetching profile" });
+    }
+});
+
 // --- 6. Protected Blood Request Routes ---
 
 /** Create Blood Request & Notify Eligible Donors */
