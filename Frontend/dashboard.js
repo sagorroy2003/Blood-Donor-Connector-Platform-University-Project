@@ -311,7 +311,12 @@ function createCardHTML(req, buttonsHTML, title) {
 
 document.addEventListener("click", async (event) => {
     const button = event.target.closest('button');
+    
+    // If it's not a button or lacks a request ID, ignore the click entirely
     if (!button || !button.dataset.requestId) return;
+
+    // Defensive check: Prevent form submissions or page reloads
+    event.preventDefault();
 
     const requestId = button.dataset.requestId;
     const token = localStorage.getItem("token");
@@ -319,6 +324,7 @@ document.addEventListener("click", async (event) => {
     let method = "POST";
     let confirmMsg = "";
 
+    // Route the click to the correct endpoint
     if (button.classList.contains("donor-accept-button")) {
         endpoint = `${API_URL}/api/requests/${requestId}/accept`;
         confirmMsg = "Accept this request? The recipient will be notified.";
@@ -348,30 +354,45 @@ document.addEventListener("click", async (event) => {
     try {
         const response = await fetch(endpoint, {
             method: method,
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { 
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
         });
 
+        // 🛡️ DEFENSIVE FIX: Safely handle server crashes (The '<' error fix)
         if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.message || "Action failed");
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                // If it's a clean backend error (like "Request no longer active")
+                const errData = await response.json();
+                throw new Error(errData.message || "Action failed");
+            } else {
+                // If Render returns an HTML error page (Server crashed or missing route)
+                throw new Error("Server crashed (500) or route missing (404). Check backend logs.");
+            }
         }
 
+        // Success UI
         if (typeof showToast === "function") {
             showToast("Action completed successfully!", "success");
         }
 
+        // Refresh grids
         fetchMyRequests();
         fetchAvailableRequests();
         fetchAcceptedRequests();
         fetchDonationHistory();
         
     } catch (err) {
+        // Restore button state so the user isn't stuck with a spinning wheel
+        button.innerHTML = originalText;
+        button.disabled = false;
+        
         if (typeof showToast === "function") {
             showToast(`Failed: ${err.message}`, "error");
         } else {
             alert(`Failed: ${err.message}`);
         }
-        button.innerHTML = originalText;
-        button.disabled = false;
     }
 });
