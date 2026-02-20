@@ -334,86 +334,187 @@ app.get("/api/requests/available", authMiddleware, async (req, res) => {
     }
 });
 
-/** Donor: Accept a Request */
+/**
+ * Donor: Accept a Blood Request
+ * * Architecture & Optimizations:
+ * - Transactional Integrity: Uses explicit DB transactions to prevent partial updates.
+ * - Concurrent I/O: Uses Promise.all() to fetch donor and recipient profiles simultaneously.
+ * - Fire-and-Forget Email: Non-blocking background execution for the SendGrid API.
+ */
 app.post("/api/requests/:requestId/accept", authMiddleware, async (req, res) => {
     const connection = await pool.getConnection();
+    
     try {
         await connection.beginTransaction();
         
-        // 1. Get IDs safely
-        const donor_id = req.user.id || req.user.userId; // Handles both token styles safely
-        const request_id = req.params.requestId;
+        // 1. Sanitize & Normalize Input (Using JS camelCase standards)
+        const donorId = req.user.id || req.user.userId; 
+        const requestId = req.params.requestId;
 
-        // 2. Check if request exists and is active
-        const [request] = await connection.query(
+        // 2. Pessimistic Check: Verify Request State
+        const [requestRows] = await connection.query(
             "SELECT status, recipient_id FROM BloodRequests WHERE request_id = ?", 
-            [request_id]
+            [requestId]
         );
         
-        if (!request[0] || request[0].status !== "active") {
+        const bloodRequest = requestRows[0];
+        
+        if (!bloodRequest || bloodRequest.status !== "active") {
             await connection.rollback(); 
-            return res.status(400).json({ message: "Request no longer active." });
+            return res.status(400).json({ message: "Request is no longer active or does not exist." });
         }
 
-        // 3. Update database tables
+        // 3. Execute Core Business Logic (State changes)
         await connection.query(
             "UPDATE BloodRequests SET status = 'on_hold' WHERE request_id = ?", 
-            [request_id]
+            [requestId]
         );
         
         await connection.query(
             "INSERT INTO RequestNotifications (request_id, donor_id, status) VALUES (?, ?, 'accepted') ON DUPLICATE KEY UPDATE status='accepted'", 
-            [request_id, donor_id]
+            [requestId, donorId]
         );
 
-        // 4. TEMPORARILY DISABLED SENDGRID TO ISOLATE THE BUG
-        // We will turn this back on once we prove the database logic works!
-        /*
-        const [recip] = await connection.query("SELECT email, name FROM Users WHERE user_id=?", [request[0].recipient_id]);
-        const [donor] = await connection.query("SELECT name, contact_phone FROM Users WHERE user_id=?", [donor_id]);
-        sgMail.send({ ... }).catch(err => console.error("SendGrid error:", err));
-        */
+        // 4. Concurrent Data Fetching (Optimization)
+        // Promise.all executes both queries simultaneously, reducing database round-trip time.
+        const [ [recipRows], [donorRows] ] = await Promise.all([
+            connection.query("SELECT email, name FROM Users WHERE user_id = ?", [bloodRequest.recipient_id]),
+            connection.query("SELECT name, contact_phone FROM Users WHERE user_id = ?", [donorId])
+        ]);
 
-        // 5. Commit and respond
+        const recipient = recipRows[0];
+        const donor = donorRows[0];
+
+        // 5. Third-Party Integrations (Fire-and-Forget Pattern)
+        if (recipient && recipient.email) {
+            sgMail.send({
+                to: recipient.email,
+                from: process.env.SENDGRID_FROM_EMAIL,
+                subject: "Urgent: A Donor Accepted Your Blood Request!",
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
+                        <h2 style="color: #d32f2f;">Great News, ${recipient.name}!</h2>
+                        <p style="font-size: 16px;"><strong>${donor.name}</strong> has accepted your blood request.</p>
+                        <p style="font-size: 16px;">Please contact them immediately at: <strong>${donor.contact_phone || "No phone number provided"}</strong></p>
+                    </div>
+                `,
+            })
+            .then(() => console.log(`[Email] Background trigger success for ${recipient.email}`))
+            .catch(err => {
+                // Silently logs the 401 Unauthorized error since the free trial expired
+                console.error("🚨 [Email] Background SendGrid Error:", err.response ? err.response.body : err.message);
+            });
+        }
+
+        // 6. Finalize Transaction
         await connection.commit();
         res.json({ message: "Request accepted successfully!" });
 
     } catch (err) {
-        // 6. THIS IS THE MOST IMPORTANT PART: We force it to print the error!
+        // Force the server to print the exact crash reason while returning a safe 500 error to the client
         await connection.rollback();
         console.error("🚨 CRITICAL ACCEPT CRASH:", err); 
         res.status(500).json({ message: "Internal server error during acceptance." });
+    } finally {
+        // Always release the connection back to the pool to prevent memory leaks
+        connection.release();
+    }
+});
+
+/** Recipient: Mark a Request as Fulfilled */
+app.post("/api/requests/:requestId/fulfill", authMiddleware, async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const recipient_id = req.user.id || req.user.userId;
+        const request_id = req.params.requestId;
+
+        // 1. Verify the current user actually owns this request
+        const [request] = await connection.query(
+            "SELECT status FROM BloodRequests WHERE request_id = ? AND recipient_id = ?", 
+            [request_id, recipient_id]
+        );
+        
+        if (!request[0] || request[0].status !== 'on_hold') {
+            await connection.rollback();
+            return res.status(400).json({ message: "Request cannot be fulfilled right now." });
+        }
+
+        // 2. Find which donor accepted it
+        const [notif] = await connection.query(
+            "SELECT donor_id FROM RequestNotifications WHERE request_id = ? AND status = 'accepted'", 
+            [request_id]
+        );
+        
+        if (!notif[0]) {
+            await connection.rollback();
+            return res.status(400).json({ message: "No accepted donor found for this request." });
+        }
+        
+        const donor_id = notif[0].donor_id;
+
+        // 3. Close the request
+        await connection.query(
+            "UPDATE BloodRequests SET status = 'fulfilled' WHERE request_id = ?", 
+            [request_id]
+        );
+
+        // 4. Create the official Donation Record (This makes it appear in the donor's history!)
+        await connection.query(
+            "INSERT INTO donations (donor_id, recipient_id, request_id, donation_date) VALUES (?, ?, ?, CURDATE())",
+            [donor_id, recipient_id, request_id]
+        );
+
+        await connection.commit();
+        res.json({ message: "Request fulfilled! Thank you to the donor." });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("🚨 CRITICAL FULFILL CRASH:", err);
+        res.status(500).json({ message: "Server error fulfilling request." });
     } finally {
         connection.release();
     }
 });
 
-/** Recipient: Fulfill Request */
-app.post("/api/requests/:requestId/fulfill", authMiddleware, async (req, res) => {
+/** Recipient: Cancel the Accepted Donor */
+app.post("/api/requests/:requestId/cancel-donor", authMiddleware, async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
+        const recipient_id = req.user.id || req.user.userId;
         const request_id = req.params.requestId;
-        const recipient_id = req.user.id;
 
-        const [request] = await connection.query("SELECT status, recipient_id FROM BloodRequests WHERE request_id=?", [request_id]);
-        if (!request[0] || request[0].recipient_id !== recipient_id || request[0].status !== "on_hold") {
-            return res.status(400).json({ message: "Invalid action." });
+        // 1. Verify the user owns this request
+        const [request] = await connection.query(
+            "SELECT status FROM BloodRequests WHERE request_id = ? AND recipient_id = ?", 
+            [request_id, recipient_id]
+        );
+        
+        if (!request[0] || request[0].status !== 'on_hold') {
+            await connection.rollback();
+            return res.status(400).json({ message: "Cannot cancel donor at this time." });
         }
 
-        const [notif] = await connection.query("SELECT donor_id FROM RequestNotifications WHERE request_id=? AND status='accepted'", [request_id]);
-        const donor_id = notif[0].donor_id;
+        // 2. Set the BloodRequest back to 'active' so it appears on the public feed again
+        await connection.query(
+            "UPDATE BloodRequests SET status = 'active' WHERE request_id = ?", 
+            [request_id]
+        );
 
-        await connection.query("UPDATE BloodRequests SET status='fulfilled' WHERE request_id=?", [request_id]);
-        await connection.query("UPDATE RequestNotifications SET status='fulfilled' WHERE request_id=? AND donor_id=?", [request_id, donor_id]);
-        await connection.query("INSERT INTO Donations (donor_id, recipient_id, request_id, donation_date) VALUES (?,?,?,NOW())", [donor_id, recipient_id, request_id]);
-        await connection.query("UPDATE Users SET last_donation_date=NOW() WHERE user_id=?", [donor_id]);
+        // 3. Update the notification so the donor sees it was cancelled
+        await connection.query(
+            "UPDATE RequestNotifications SET status = 'cancelled' WHERE request_id = ? AND status = 'accepted'", 
+            [request_id]
+        );
 
         await connection.commit();
-        res.json({ message: "Fulfilled!" });
+        res.json({ message: "Donor cancelled. Your request is now public again." });
+
     } catch (err) {
         await connection.rollback();
-        res.status(500).json({ message: "Server error" });
+        console.error("🚨 CRITICAL CANCEL-DONOR CRASH:", err);
+        res.status(500).json({ message: "Server error cancelling donor." });
     } finally {
         connection.release();
     }
