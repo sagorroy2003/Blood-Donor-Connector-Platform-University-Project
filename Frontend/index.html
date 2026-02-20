@@ -6,7 +6,7 @@
         <title>Blood Donor-NSTU | Save Lives</title>
 
         <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
             rel="stylesheet">
         <link rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -14,7 +14,6 @@
     </head>
     <body>
 
-        <!-- Navbar -->
         <header>
             <nav class="navbar">
                 <div class="logo">
@@ -35,34 +34,40 @@
             </nav>
         </header>
 
-        <!-- Hero Section (Only Join Now Button) -->
-        <div class="hero">
+        <section class="hero">
             <div class="hero-overlay">
                 <h1>You Can Save a Life Today</h1>
                 <p>Real people in Noakhali and nearby areas need blood right
                     now.<br>Every drop counts.</p>
 
-                <!-- Only one prominent button -->
-                <a href="register.html" class="btn-primary hero-main-btn">
+                <a href="register.html" class="hero-main-btn">
                     <i class="fas fa-user-plus"></i> Join Now – Save Lives
                 </a>
             </div>
-        </div>
+        </section>
 
-        <!-- Public Active Requests -->
-        <div class="section">
-            <h2><i class="fas fa-droplet"></i> Active Blood Requests Right
-                Now</h2>
-            <div id="public-requests-list">
-                <p>Loading urgent requests...</p>
+        <section class="public-feed-section">
+            <div class="section-header">
+                <h2><i class="fas fa-heart-pulse"></i> Active Blood
+                    Requests</h2>
+                <p>Urgent needs from our community. Register to contact the
+                    recipient.</p>
             </div>
-        </div>
+
+            <div id="public-requests-list" class="requests-grid">
+                <div class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading urgent requests...</p>
+                </div>
+            </div>
+        </section>
 
         <footer>
             <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
         </footer>
 
-        <!-- Mobile Menu -->
+        <script src="index.js"></script>
+
         <script>
         const hamburger = document.querySelector('.hamburger');
         const navLinks = document.querySelector('.nav-links');
@@ -71,8 +76,5 @@
             hamburger.classList.toggle('open');
         });
     </script>
-
-        <script src="index.js"></script>
-
     </body>
 </html>

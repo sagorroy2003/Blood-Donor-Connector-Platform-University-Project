@@ -404,50 +404,6 @@ app.get("/api/requests/myrequests", authMiddleware, async (req, res) => {
     }
 });
 
-// GET Available Requests for Donor (Protected)
-app.get("/api/requests/available", authMiddleware, async (req, res) => {
-    try {
-        const donor_id = req.user.id;
-        const [userRows] = await pool.query(
-            "SELECT city, blood_type_id, last_donation_date FROM Users WHERE user_id = ?",
-            [donor_id]
-        );
-        if (!userRows[0])
-            return res.status(404).json({ message: "Donor profile not found" });
-
-        const { city, blood_type_id, last_donation_date } = userRows[0];
-
-        let isEligible = true;
-        if (last_donation_date) {
-            const lastDonation = new Date(last_donation_date);
-            const threeMonthsAgo = new Date();
-            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-            if (lastDonation > threeMonthsAgo) isEligible = false;
-        }
-
-        if (!isEligible) return res.json([]);
-
-        const sql = `
-          SELECT br.*, u.name AS recipient_name, bt.type AS blood_type FROM BloodRequests AS br
-          JOIN Users AS u ON br.recipient_id = u.user_id
-          JOIN BloodTypes AS bt ON br.blood_type_id = bt.blood_type_id
-          WHERE br.city = ? AND br.blood_type_id = ? AND br.status = 'active' AND br.recipient_id != ?
-          ORDER BY br.date_requested DESC
-        `;
-        const [availableRequests] = await pool.query(sql, [
-            city,
-            blood_type_id,
-            donor_id,
-        ]);
-        res.json(availableRequests);
-    } catch (err) {
-        console.error("Error fetching available requests:", err);
-        res
-            .status(500)
-            .json({ message: "Server error fetching available requests" });
-    }
-});
-
 // --- NEW: PROTECTED API ENDPOINT FOR A DONOR TO ACCEPT A REQUEST ---
 app.post('/api/requests/:requestId/accept', authMiddleware, async (req, res) => {
     try {
@@ -629,8 +585,7 @@ app.post("/api/requests/:requestId/cancel-acceptance", authMiddleware, async (re
             .status(500)
             .json({ message: "Server error while cancelling acceptance" });
     }
-}
-);
+});
 
 // POST Cancel Accepted Donor (Protected, Recipient Action)
 app.post("/api/requests/:requestId/cancel-donor", authMiddleware, async (req, res) => {
@@ -728,8 +683,7 @@ app.post("/api/requests/:requestId/cancel-donor", authMiddleware, async (req, re
         console.error("Error cancelling donor:", err);
         res.status(500).json({ message: "Server error while cancelling donor" });
     }
-}
-);
+});
 
 // POST Mark Request Fulfilled (Protected, Recipient Action)
 app.post("/api/requests/:requestId/fulfill", authMiddleware, async (req, res) => {
@@ -800,12 +754,10 @@ app.post("/api/requests/:requestId/fulfill", authMiddleware, async (req, res) =>
             .status(500)
             .json({ message: "Server error while fulfilling request" });
     }
-}
-);
+});
 
 // ====================== PUBLIC ENDPOINT (No Login Required) ======================
 // Anyone can see active blood requests on the homepage
-// PUBLIC ENDPOINT - Anyone can see active requests (No login needed)
 app.get("/api/requests/public", async (req, res) => {
     try {
         const sql = `
@@ -910,7 +862,6 @@ app.post('/api/forgot-password', async (req, res) => {
     }
 });
 
-
 // --- NEW: API ENDPOINT TO SET THE NEW PASSWORD ---
 app.post('/api/reset-password', async (req, res) => {
     try {
@@ -950,337 +901,40 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// --- Start the Server ---
-app.listen(port, () => {
-    console.log(`Backend server running at http://localhost:${port}`);
-});
-
-// --- NEW: PROTECTED API ENDPOINT TO GET A USER'S OWN REQUESTS ---
-app.get("/api/requests/myrequests", authMiddleware, async (req, res) => {
-    try {
-        const recipient_id = req.user.id; // Get user ID from their token
-
-        const sql = `
-      SELECT br.*, bt.type AS blood_type
-      FROM BloodRequests AS br
-      JOIN BloodTypes AS bt ON br.blood_type_id = bt.blood_type_id
-      WHERE br.recipient_id = ?
-      ORDER BY br.date_requested DESC
-    `;
-
-        const [requests] = await pool.query(sql, [recipient_id]);
-
-        res.json(requests); // Send the list of requests
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error fetching requests" });
-    }
-});
-
-// --- UPDATE: PROTECTED API ENDPOINT TO FIND MATCHING REQUESTS FOR A DONOR ---
+// === FINAL CLEAN VERSION - All active requests in same city ===
 app.get("/api/requests/available", authMiddleware, async (req, res) => {
     try {
         const donor_id = req.user.id;
 
-        // 1. Get the donor's city, blood type, AND last donation date
         const [userRows] = await pool.query(
-            "SELECT city, blood_type_id, last_donation_date FROM Users WHERE user_id = ?", // <-- Added last_donation_date
+            "SELECT city FROM Users WHERE user_id = ?",
             [donor_id]
         );
 
         if (!userRows[0]) {
-            return res.status(404).json({ message: "Donor profile not found" });
+            return res.status(404).json({ message: "Donor not found" });
         }
 
-        const { city, blood_type_id, last_donation_date } = userRows[0]; // <-- Get the date
+        const donorCity = userRows[0].city.trim();
 
-        // --- ADD ELIGIBILITY CHECK ---
-        let isEligible = true;
-        if (last_donation_date) {
-            const lastDonation = new Date(last_donation_date);
-            const threeMonthsAgo = new Date();
-            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3); // Calculate 3 months ago
-
-            if (lastDonation > threeMonthsAgo) {
-                isEligible = false; // Donor donated too recently
-            }
-        }
-
-        if (!isEligible) {
-            // If not eligible, return an empty array immediately
-            return res.json([]);
-        }
-        // -----------------------------
-
-        // 2. Now, find matching active requests (only if eligible)
-        const sql = `
+        const [requests] = await pool.query(`
             SELECT br.*, u.name AS recipient_name, bt.type AS blood_type
-            FROM BloodRequests AS br
-            JOIN Users AS u ON br.recipient_id = u.user_id
-            JOIN BloodTypes AS bt ON br.blood_type_id = bt.blood_type_id
+            FROM BloodRequests br
+            JOIN Users u ON br.recipient_id = u.user_id
+            JOIN BloodTypes bt ON br.blood_type_id = bt.blood_type_id
             WHERE br.city = ?
-              AND br.blood_type_id = ?
               AND br.status = 'active'
-              AND br.recipient_id != ? 
+              AND br.recipient_id != ?
             ORDER BY br.date_requested DESC
-        `;
-        const [availableRequests] = await pool.query(sql, [
-            city,
-            blood_type_id,
-            donor_id,
-        ]);
+        `, [donorCity, donor_id]);
 
-        res.json(availableRequests);
+        console.log(`✅ Found ${requests.length} active requests in city "${donorCity}"`);
+
+        res.json({ requests: requests });
+
     } catch (err) {
         console.error("Error fetching available requests:", err);
-        res
-            .status(500)
-            .json({ message: "Server error fetching available requests" });
-    }
-});
-
-// --- NEW: PROTECTED API ENDPOINT FOR A DONOR TO ACCEPT A REQUEST ---
-app.post("/api/requests/:requestId/accept", authMiddleware, async (req, res) => {
-    try {
-        const donor_id = req.user.id; // Get donor's ID from token
-        const request_id = req.params.requestId; // Get request ID from the URL
-
-        // --- Transaction Start ---
-        // We use a transaction to make sure BOTH updates succeed or fail together.
-        const connection = await pool.getConnection();
-        await connection.beginTransaction();
-
-        try {
-            // 1. Check if the request is still 'active' (important race condition check)
-            const [requestRows] = await connection.query(
-                "SELECT status FROM BloodRequests WHERE request_id = ?",
-                [request_id]
-            );
-
-            if (!requestRows[0] || requestRows[0].status !== "active") {
-                await connection.rollback(); // Undo transaction
-                connection.release();
-                return res
-                    .status(400)
-                    .json({
-                        message: "Request is no longer active or does not exist.",
-                    });
-            }
-
-            // 2. Update the BloodRequest status to 'on_hold'
-            await connection.query(
-                "UPDATE BloodRequests SET status = ? WHERE request_id = ?",
-                ["on_hold", request_id]
-            );
-
-            // 3. Create or Update the RequestNotification for this donor/request
-            // We use INSERT ... ON DUPLICATE KEY UPDATE in case a notification record
-            // wasn't pre-created (though our current logic does create them).
-            // This makes it more robust.
-            const notificationSql = `
-        INSERT INTO RequestNotifications (request_id, donor_id, status) 
-        VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE status = ?
-      `;
-            await connection.query(notificationSql, [
-                request_id,
-                donor_id,
-                "accepted",
-                "accepted",
-            ]);
-
-            // --- (Optional but Recommended) ---
-            // Here you would add code to:
-            // a) Get the recipient's email/phone from the BloodRequest's recipient_id
-            // b) Use SendGrid/Twilio to notify the RECIPIENT that a donor has accepted.
-            // ------------------------------------
-
-            // If all queries worked, commit the transaction
-            await connection.commit();
-            connection.release();
-
-            res.json({
-                message:
-                    "Request accepted successfully! Please contact the recipient.",
-            });
-        } catch (innerErr) {
-            // If any error occurred inside the transaction, roll back
-            await connection.rollback();
-            connection.release();
-            throw innerErr; // Re-throw the error to be caught by the outer catch
-        }
-        // --- Transaction End ---
-    } catch (err) {
-        console.error("Error accepting request:", err);
-        res.status(500).json({ message: "Server error while accepting request" });
-    }
-}
-);
-
-// --- NEW: PROTECTED API ENDPOINT FOR DONOR TO CANCEL THEIR ACCEPTANCE ---
-app.post("/api/requests/:requestId/cancel-acceptance", authMiddleware, async (req, res) => {
-    try {
-        const donor_id = req.user.id; // Get donor's ID
-        const request_id = req.params.requestId;
-
-        const connection = await pool.getConnection();
-        await connection.beginTransaction();
-
-        try {
-            // 1. Verify this donor actually accepted this request and it's 'on_hold'
-            const [notificationRows] = await connection.query(
-                "SELECT rn.status AS notification_status, br.status AS request_status FROM RequestNotifications rn JOIN BloodRequests br ON rn.request_id = br.request_id WHERE rn.request_id = ? AND rn.donor_id = ?",
-                [request_id, donor_id]
-            );
-
-            if (
-                !notificationRows[0] ||
-                notificationRows[0].notification_status !== "accepted" ||
-                notificationRows[0].request_status !== "on_hold"
-            ) {
-                await connection.rollback();
-                connection.release();
-                return res
-                    .status(400)
-                    .json({
-                        message:
-                            "Cannot cancel: Request not accepted by you or not on hold.",
-                    });
-            }
-
-            // 2. Update RequestNotification status
-            await connection.query(
-                "UPDATE RequestNotifications SET status = ? WHERE request_id = ? AND donor_id = ?",
-                ["cancelled_by_donor", request_id, donor_id]
-            );
-
-            // 3. Update BloodRequest status back to 'active'
-            await connection.query(
-                "UPDATE BloodRequests SET status = ? WHERE request_id = ?",
-                ["active", request_id]
-            );
-
-            // (Optional: Notify recipient that donor cancelled)
-
-            await connection.commit();
-            connection.release();
-            res.json({
-                message:
-                    "Acceptance cancelled successfully. The request is active again.",
-            });
-        } catch (innerErr) {
-            await connection.rollback();
-            connection.release();
-            throw innerErr;
-        }
-    } catch (err) {
-        console.error("Error cancelling acceptance:", err);
-        res
-            .status(500)
-            .json({ message: "Server error while cancelling acceptance" });
-    }
-}
-);
-
-// --- NEW: PROTECTED API ENDPOINT FOR RECIPIENT TO CANCEL AN ACCEPTED DONOR ---
-app.post("/api/requests/:requestId/cancel-donor", authMiddleware, async (req, res) => {
-    try {
-        const recipient_id = req.user.id; // Get recipient's ID
-        const request_id = req.params.requestId;
-
-        const connection = await pool.getConnection();
-        await connection.beginTransaction();
-
-        try {
-            // 1. Verify this recipient owns the request and it's 'on_hold'
-            const [requestRows] = await connection.query(
-                "SELECT recipient_id, status FROM BloodRequests WHERE request_id = ?",
-                [request_id]
-            );
-
-            if (
-                !requestRows[0] ||
-                requestRows[0].recipient_id !== recipient_id ||
-                requestRows[0].status !== "on_hold"
-            ) {
-                await connection.rollback();
-                connection.release();
-                return res
-                    .status(400)
-                    .json({
-                        message: "Cannot cancel donor: Request not yours or not on hold.",
-                    });
-            }
-
-            // 2. Find the donor who accepted and update their notification status
-            // Note: In a robust system, you might have multiple 'accepted' initially,
-            // but our logic only allows one at a time to reach 'on_hold'.
-            const [donorUpdateResult] = await connection.query(
-                "UPDATE RequestNotifications SET status = ? WHERE request_id = ? AND status = ?",
-                ["cancelled_by_recipient", request_id, "accepted"]
-            );
-
-            // Check if any donor notification was actually updated
-            if (donorUpdateResult.affectedRows === 0) {
-                // This might happen if something went wrong, handle gracefully
-                console.warn(
-                    `No accepted donor found for request ${request_id} during cancellation by recipient ${recipient_id}`
-                );
-            }
-
-            // 3. Update BloodRequest status back to 'active'
-            await connection.query(
-                "UPDATE BloodRequests SET status = ? WHERE request_id = ?",
-                ["active", request_id]
-            );
-
-            // (Optional: Notify the cancelled donor)
-
-            await connection.commit();
-            connection.release();
-            res.json({
-                message: "Donor cancelled successfully. The request is active again.",
-            });
-        } catch (innerErr) {
-            await connection.rollback();
-            connection.release();
-            throw innerErr;
-        }
-    } catch (err) {
-        console.error("Error cancelling donor:", err);
-        res.status(500).json({ message: "Server error while cancelling donor" });
-    }
-}
-);
-
-// --- NEW: PROTECTED API ENDPOINT TO GET DONOR'S DONATION HISTORY ---
-app.get("/api/donations/myhistory", authMiddleware, async (req, res) => {
-    try {
-        const donor_id = req.user.id; // Get the logged-in user's ID
-
-        const sql = `
-            SELECT 
-                d.donation_id, 
-                d.donation_date, 
-                u_recipient.name AS recipient_name, 
-                br.city AS request_city,
-                bt.type AS blood_type_donated
-            FROM Donations AS d
-            JOIN Users AS u_recipient ON d.recipient_id = u_recipient.user_id
-            LEFT JOIN BloodRequests AS br ON d.request_id = br.request_id 
-            LEFT JOIN BloodTypes AS bt ON br.blood_type_id = bt.blood_type_id 
-            WHERE d.donor_id = ?
-            ORDER BY d.donation_date DESC
-        `;
-        // We use LEFT JOINs in case the original BloodRequest or its BloodType was deleted
-        // And we join Users again to get the recipient's name
-
-        const [history] = await pool.query(sql, [donor_id]);
-
-        res.json(history);
-    } catch (err) {
-        console.error("Error fetching donation history:", err);
-        res.status(500).json({ message: "Server error fetching donation history" });
+        res.status(500).json({ message: "Server error" });
     }
 });
 
@@ -1389,4 +1043,9 @@ app.delete('/api/requests/:requestId', authMiddleware, async (req, res) => {
         console.error('Error deleting request:', err);
         res.status(500).json({ message: 'Server error while deleting request' });
     }
+});
+
+// --- Start the Server ---
+app.listen(port, () => {
+    console.log(`Backend server running at http://localhost:${port}`);
 });

@@ -11,7 +11,7 @@
 </head>
 <body>
 
-    <!-- Navbar (unchanged) -->
+    <!-- Navbar -->
     <header>
         <nav class="navbar">
             <div class="logo">
@@ -31,7 +31,7 @@
         </nav>
     </header>
 
-    <!-- Hero Banner -->
+    <!-- Premium Hero -->
     <section class="hero">
         <div class="hero-overlay">
             <h1>You Can Save a Life Today</h1>
@@ -42,17 +42,19 @@
         </div>
     </section>
 
-    <!-- Main Content -->
-    <div class="dashboard-container">
-        
+    <!-- Premium Dashboard Content -->
+    <div class="main-content">
+
         <!-- Profile -->
-        <div class="section" id="profile">
+        <div class="section">
             <h2><i class="fas fa-user-circle"></i> Welcome, <span id="user-name">Loading...</span></h2>
-            <p><i class="fas fa-envelope"></i> <strong>Email:</strong> <span id="user-email">...</span></p>
-            <p><i class="fas fa-phone"></i> <strong>Phone:</strong> <span id="user-phone">...</span></p>
+            <div class="profile-box">
+                <p><i class="fas fa-envelope"></i> <strong>Email:</strong> <span id="user-email">...</span></p>
+                <p><i class="fas fa-phone"></i> <strong>Phone:</strong> <span id="user-phone">...</span></p>
+            </div>
         </div>
 
-        <!-- Logout Button (now using CSS class instead of inline style) -->
+        <!-- Logout -->
         <div class="logout-wrapper">
             <button id="logout-button">
                 <i class="fas fa-sign-out-alt"></i> Logout
@@ -63,18 +65,16 @@
         <div class="section">
             <h2><i class="fas fa-plus-circle"></i> Create a New Blood Request</h2>
             <form id="request-form">
-                <label for="request-city"><i class="fas fa-map-marker-alt"></i> City (e.g., Noakhali)</label>
-                <input type="text" id="request-city" placeholder="Enter city" required>
+                <label for="request-city"><i class="fas fa-map-marker-alt"></i> City</label>
+                <input type="text" id="request-city" placeholder="e.g. Noakhali" required>
 
                 <label for="request-blood-type"><i class="fas fa-tint"></i> Blood Type Needed</label>
-                <select id="request-blood-type" required>
-                    <option value="">Loading blood types...</option>
-                </select>
+                <select id="request-blood-type" required></select>
 
                 <label for="request-date"><i class="fas fa-calendar"></i> Date Needed</label>
                 <input type="date" id="request-date" required>
 
-                <label for="request-reason"><i class="fas fa-comment-medical"></i> Reason (e.g., Surgery, Accident)</label>
+                <label for="request-reason"><i class="fas fa-comment-medical"></i> Reason</label>
                 <textarea id="request-reason" rows="3" placeholder="Briefly describe the need..."></textarea>
 
                 <button type="submit">
@@ -87,25 +87,25 @@
         <!-- My Active Requests -->
         <div class="section">
             <h2><i class="fas fa-list"></i> My Active Requests</h2>
-            <div id="my-requests-list"><p>Loading...</p></div>
+            <div id="my-requests-list" class="requests-grid"><p>Loading...</p></div>
         </div>
 
         <!-- Available Requests -->
         <div class="section">
-            <h2><i class="fas fa-users"></i> Available Requests Near Me (All Blood Types)</h2>
-            <div id="available-requests-list"><p>Loading...</p></div>
+            <h2><i class="fas fa-users"></i> Available Requests Near Me</h2>
+            <div id="available-requests-list" class="requests-grid"><p>Loading...</p></div>
         </div>
 
         <!-- Accepted Commitments -->
         <div class="section">
-            <h2><i class="fas fa-handshake"></i> My Accepted Commitments (Pending Donations)</h2>
-            <div id="accepted-requests-list"><p>Loading...</p></div>
+            <h2><i class="fas fa-handshake"></i> My Accepted Commitments</h2>
+            <div id="accepted-requests-list" class="requests-grid"><p>Loading...</p></div>
         </div>
 
         <!-- Donation History -->
         <div class="section">
             <h2><i class="fas fa-history"></i> My Donation History</h2>
-            <div id="donation-history-list"><p>Loading...</p></div>
+            <div id="donation-history-list" class="requests-grid"><p>Loading...</p></div>
         </div>
 
     </div>
@@ -129,7 +129,8 @@
     <!-- Date picker min=today -->
     <script>
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('request-date').setAttribute('min', today);
+        const dateInput = document.getElementById('request-date');
+        if (dateInput) dateInput.setAttribute('min', today);
     </script>
 
 </body>
