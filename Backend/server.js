@@ -419,6 +419,76 @@ app.post("/api/requests/:requestId/fulfill", authMiddleware, async (req, res) =>
     }
 });
 
+/** Donor: Cancel an Accepted Request */
+app.post("/api/requests/:requestId/cancel-acceptance", authMiddleware, async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const donor_id = req.user.id || req.user.userId;
+        const request_id = req.params.requestId;
+
+        // 1. Verify this donor actually accepted it
+        const [notif] = await connection.query(
+            "SELECT status FROM RequestNotifications WHERE request_id = ? AND donor_id = ?", 
+            [request_id, donor_id]
+        );
+        
+        if (!notif[0] || notif[0].status !== 'accepted') {
+            await connection.rollback();
+            return res.status(400).json({ message: "You have not accepted this request." });
+        }
+
+        // 2. Set BloodRequest back to 'active'
+        await connection.query(
+            "UPDATE BloodRequests SET status = 'active' WHERE request_id = ?", 
+            [request_id]
+        );
+        
+        // 3. Update notification to cancelled so it stops showing in "My Accepted Commitments"
+        await connection.query(
+            "UPDATE RequestNotifications SET status = 'cancelled' WHERE request_id = ? AND donor_id = ?", 
+            [request_id, donor_id]
+        );
+
+        await connection.commit();
+        res.json({ message: "Acceptance cancelled. Request is public again." });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("🚨 CRITICAL CANCEL CRASH:", err);
+        res.status(500).json({ message: "Internal server error during cancellation." });
+    } finally {
+        connection.release();
+    }
+});
+
+/** Donor: Get My Donation History */
+app.get("/api/donations/myhistory", authMiddleware, async (req, res) => {
+    try {
+        const donorId = req.user.id || req.user.userId;
+        
+        const [history] = await pool.query(`
+            SELECT 
+                d.donation_date, 
+                br.city, 
+                br.reason, 
+                u.name as recipient_name, 
+                bt.type as blood_type_donated
+            FROM donations d
+            JOIN BloodRequests br ON d.request_id = br.request_id
+            JOIN users u ON d.recipient_id = u.user_id
+            JOIN bloodtypes bt ON br.blood_type_id = bt.blood_type_id
+            WHERE d.donor_id = ?
+            ORDER BY d.donation_date DESC
+        `, [donorId]);
+
+        res.json(history);
+    } catch (err) {
+        console.error("🚨 CRITICAL HISTORY CRASH:", err);
+        res.status(500).json({ message: "Failed to load donation history." });
+    }
+});
+
 /** Delete Request (Recipient Action) */
 app.delete("/api/requests/:requestId", authMiddleware, async (req, res) => {
     const connection = await pool.getConnection();
