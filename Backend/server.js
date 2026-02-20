@@ -339,33 +339,50 @@ app.post("/api/requests/:requestId/accept", authMiddleware, async (req, res) => 
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        const donor_id = req.user.id;
+        
+        // 1. Get IDs safely
+        const donor_id = req.user.id || req.user.userId; // Handles both token styles safely
         const request_id = req.params.requestId;
 
-        const [request] = await connection.query("SELECT status, recipient_id FROM BloodRequests WHERE request_id = ?", [request_id]);
+        // 2. Check if request exists and is active
+        const [request] = await connection.query(
+            "SELECT status, recipient_id FROM BloodRequests WHERE request_id = ?", 
+            [request_id]
+        );
+        
         if (!request[0] || request[0].status !== "active") {
+            await connection.rollback(); 
             return res.status(400).json({ message: "Request no longer active." });
         }
 
-        await connection.query("UPDATE BloodRequests SET status = 'on_hold' WHERE request_id = ?", [request_id]);
-        await connection.query("INSERT INTO RequestNotifications (request_id, donor_id, status) VALUES (?,?,'accepted') ON DUPLICATE KEY UPDATE status='accepted'", [request_id, donor_id]);
+        // 3. Update database tables
+        await connection.query(
+            "UPDATE BloodRequests SET status = 'on_hold' WHERE request_id = ?", 
+            [request_id]
+        );
+        
+        await connection.query(
+            "INSERT INTO RequestNotifications (request_id, donor_id, status) VALUES (?, ?, 'accepted') ON DUPLICATE KEY UPDATE status='accepted'", 
+            [request_id, donor_id]
+        );
 
-        // Notify recipient (Email)
+        // 4. TEMPORARILY DISABLED SENDGRID TO ISOLATE THE BUG
+        // We will turn this back on once we prove the database logic works!
+        /*
         const [recip] = await connection.query("SELECT email, name FROM Users WHERE user_id=?", [request[0].recipient_id]);
         const [donor] = await connection.query("SELECT name, contact_phone FROM Users WHERE user_id=?", [donor_id]);
-        
-        await sgMail.send({
-            to: recip[0].email,
-            from: process.env.SENDGRID_FROM_EMAIL,
-            subject: "Donor Accepted Your Request!",
-            html: `<p>${donor[0].name} accepted. Contact: ${donor[0].contact_phone || "N/A"}</p>`,
-        });
+        sgMail.send({ ... }).catch(err => console.error("SendGrid error:", err));
+        */
 
+        // 5. Commit and respond
         await connection.commit();
-        res.json({ message: "Request accepted!" });
+        res.json({ message: "Request accepted successfully!" });
+
     } catch (err) {
+        // 6. THIS IS THE MOST IMPORTANT PART: We force it to print the error!
         await connection.rollback();
-        res.status(500).json({ message: "Error" });
+        console.error("🚨 CRITICAL ACCEPT CRASH:", err); 
+        res.status(500).json({ message: "Internal server error during acceptance." });
     } finally {
         connection.release();
     }
