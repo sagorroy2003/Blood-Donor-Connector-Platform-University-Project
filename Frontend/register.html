@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,16 +9,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+    
     <header>
         <nav class="navbar">
-            <div class="logo"><a href="dashboard.html"> Blood Donor-<span class="nstu-box">NSTU</span></a></div>
+            <div class="logo">
+                <a href="index.html">
+                    Blood Donor-<span class="nstu-box">NSTU</span>
+                </a>
+            </div>
             <ul class="nav-links">
-                <li><a href="dashboard.html">Dashboard</a></li>
-                <li><a href="register.html">Register</a></li>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="register.html" class="active">Register</a></li>
                 <li><a href="login.html">Login</a></li>
-                <li><a href="forgot-password.html">Forgot Password</a></li>
             </ul>
             <div class="hamburger">
                 <span></span>
@@ -29,55 +31,70 @@
         </nav>
     </header>
 
-    <div class="container">
+    <main class="main-content">
+        
+        <div id="form-container">
+            
+            <div>
+                <i class="fas fa-heartbeat"></i>
+                <h1>Join Our Community</h1>
+                <p>Register as a donor or recipient and start saving lives.</p>
+            </div>
 
-        <h1>Join Our Community</h1>
+            <form id="register-form">
+                <div>
+                    <div>
+                        <label for="name"><i class="fas fa-user"></i> Full Name</label>
+                        <input type="text" id="name" placeholder="John Doe" required>
+                    </div>
+                    <div>
+                        <label for="phone"><i class="fas fa-phone"></i> Phone Number</label>
+                        <input type="tel" id="phone" placeholder="01XXXXXXXXX" required pattern="[0-9]{11}">
+                    </div>
+                </div>
 
-        <form id="register-form">
-            <label for="name"><i class="fas fa-user"></i> Name:</label>
-            <input type="text" id="name" required>
+                <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
+                <input type="email" id="email" placeholder="student@nstu.edu.bd" required>
 
-            <label for="email"><i class="fas fa-envelope"></i> Email:</label>
-            <input type="email" id="email" required>
+                <label for="password"><i class="fas fa-lock"></i> Password</label>
+                <input type="password" id="password" placeholder="Create a strong password" required>
 
-            <label for="password"><i class="fas fa-lock"></i> Password:</label>
-            <input type="password" id="password" required>
+                <div>
+                    <div>
+                        <label for="dob"><i class="fas fa-calendar-alt"></i> Date of Birth</label>
+                        <input type="date" id="dob" required>
+                    </div>
+                    <div>
+                        <label for="blood-type"><i class="fas fa-tint"></i> Blood Type</label>
+                        <select id="blood-type" required>
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                </div>
 
-            <label for="dob"><i class="fas fa-calendar-alt"></i> Date of Birth:</label>
-            <input type="date" id="dob" required>
+                <label for="city"><i class="fas fa-map-marker-alt"></i> City</label>
+                <input type="text" id="city" placeholder="e.g., Noakhali" required>
 
-            <label for="phone"><i class="fas fa-phone"></i> Phone Number:</label>
-            <input type="tel" id="phone" required>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-user-plus"></i> Join Now
+                </button>
+            </form>
 
-            <label for="city"><i class="fas fa-map-marker-alt"></i> City (e.g., Noakhali):</label>
-            <input type="text" id="city" required>
+            <div>
+                <p>
+                    Already have an account? <a href="login.html">Login here</a>
+                </p>
+            </div>
+            
+        </div>
 
-            <label for="blood-type"><i class="fas fa-tint"></i> Your Blood Type:</label>
-            <select id="blood-type" required>
-                <option value="">Loading...</option>
-            </select>
-
-            <button type="submit"><i class="fas fa-user-plus"></i> Join Now</button>
-        </form>
-
-        <p id="message"></p>
-
-        <p>Already have an account? <a href="login.html">Login here</a></p>
-
-        <script src="register.js"></script>
-    </div>
+    </main>
 
     <footer>
         <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
     </footer>
 
-    <script>
-        const hamburger = document.querySelector('.hamburger');
-        const navLinks = document.querySelector('.nav-links');
-        hamburger.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            hamburger.classList.toggle('open');
-        });
-    </script>
+    <script src="toast.js"></script>
+    <script src="register.js"></script>
 </body>
 </html>

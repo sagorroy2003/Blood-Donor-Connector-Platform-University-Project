@@ -1,66 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Your Email - Blood Donor-NSTU</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Check Your Email - Blood Donor-NSTU</title>
-        <link rel="stylesheet" href="style.css">
+    <header>
+        <nav class="navbar">
+            <div class="logo">
+                <a href="index.html">Blood Donor-<span class="nstu-box">NSTU</span></a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="register.html">Register</a></li>
+                <li><a href="login.html">Login</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
 
-        <style>
-        /* Optional: styles for this specific page */
-        .notice-box {
-            max-width: 500px;
-            margin: 50px auto;
-            padding: 30px;
-            text-align: center;
-            background-color: #333;
-            border-radius: 8px;
-        }
-    </style>
-    </head>
-
-    <body>
-        <header>
-            <nav class="navbar">
-                <div class="logo"><a href="dashboard.html"> Blood Donor-<span
-                            class="nstu-box">NSTU</span></a></div>
-                <ul class="nav-links">
-                    <li><a href="dashboard.html">Dashboard</a></li>
-                    <li><a href="register.html">Register</a></li>
-                    <li><a href="login.html">Login</a></li>
-                    <li><a href="forgot-password.html">Forgot Password</a></li>
-                </ul>
-                <div class="hamburger">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </nav>
-        </header>
+    <main class="main-content">
+        
         <div class="notice-box">
-            <h1>📧 Check Your Email</h1>
-            <p>We've sent a verification link to the email address you
-                provided.</p>
-            <p>You'll need to click this link to activate your account before
-                you can log in.</p>
-            <br>
-            <a href="login.html">Proceed to Login</a>
+            
+            <i class="fas fa-envelope-open-text"></i>
+            
+            <h1>Check Your Email</h1>
+            
+            <p>
+                We've sent a verification link to your email address.
+            </p>
+            <p>
+                You'll need to click this link to activate your account before you can log in.
+            </p>
+            
+            <a href="login.html" class="btn-primary">
+                Proceed to Login <i class="fas fa-arrow-right"></i>
+            </a>
+            
         </div>
+        
+    </main>
 
-        <footer>
-            <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
-        </footer>
+    <footer>
+        <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
+    </footer>
 
-        <script>
+    <script src="toast.js"></script>
+    <script>
+        // Mobile Menu Logic
         const hamburger = document.querySelector('.hamburger');
         const navLinks = document.querySelector('.nav-links');
 
-        hamburger.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            hamburger.classList.toggle('open');
-        });
+        if (hamburger && navLinks) {
+            hamburger.addEventListener('click', () => {
+                navLinks.classList.toggle('active');
+                hamburger.classList.toggle('open');
+            });
+        }
     </script>
-    </body>
-
+</body>
 </html>

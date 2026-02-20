@@ -1,74 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - Blood Donor-NSTU</title>
 
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verify Email - Blood Donor-NSTU</title>
-        <style>
-        body {
-            font-family: sans-serif;
-            background: #222;
-            color: #eee;
-            padding: 20px;
-        }
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-        .message {
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
+    <header>
+        <nav class="navbar">
+            <div class="logo">
+                <a href="index.html">Blood Donor-<span class="nstu-box">NSTU</span></a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="register.html">Register</a></li>
+                <li><a href="login.html">Login</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
 
-        .success {
-            background-color: #dff0d8;
-            color: #3c763d;
-            border: 1px solid #d6e9c6;
-        }
+    <main class="main-content">
+        
+        <div id="form-container" class="notice-box">
+            
+            <div id="status-icon">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
 
-        .error {
-            background-color: #f2dede;
-            color: #a94442;
-            border: 1px solid #ebccd1;
-        }
-    </style>
-    </head>
+            <h1 id="status-title">Verifying Email...</h1>
+            
+            <p id="status-message">
+                Please wait while we securely verify your account.
+            </p>
 
-    <body>
-        <header>
-            <nav class="navbar">
-                <div class="logo"><a href="dashboard.html"> Blood Donor-<span
-                            class="nstu-box">NSTU</span></a></div>
-                <ul class="nav-links">
-                    <li><a href="dashboard.html">Dashboard</a></li>
-                    <li><a href="register.html">Register</a></li>
-                    <li><a href="login.html">Login</a></li>
-                    <li><a href="forgot-password.html">Forgot Password</a></li>
-                </ul>
-                <div class="hamburger">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </nav>
-        </header>
-        <h1>Email Verification</h1>
-        <div id="verification-message">
-            <p>Verifying your email...</p>
+            <div id="action-container">
+                <a id="action-btn" href="login.html" class="btn-primary">
+                    Proceed to Login <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
         </div>
 
-        <script>
-        // Use the same API_URL as your other frontend files
-        const API_URL = "https://blood-donor-backend-mj35.onrender.com";
+    </main>
 
-        const messageDiv = document.getElementById('verification-message');
+    <footer>
+        <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
+    </footer>
+
+    <script src="toast.js"></script>
+    <script>
+        // 1. Mobile Menu Logic
+        const hamburger = document.querySelector('.hamburger');
+        const navLinks = document.querySelector('.nav-links');
+        if (hamburger && navLinks) {
+            hamburger.addEventListener('click', () => {
+                navLinks.classList.toggle('active');
+                hamburger.classList.toggle('open');
+            });
+        }
+
+        // 2. Verification Logic & UI State Management
+        const API_URL = "https://blood-donor-backend-mj35.onrender.com";
+        
+        // DOM Elements to update
+        const iconEl = document.getElementById('status-icon');
+        const titleEl = document.getElementById('status-title');
+        const msgEl = document.getElementById('status-message');
+        const actionContainer = document.getElementById('action-container');
+        const actionBtn = document.getElementById('action-btn');
 
         async function verifyEmail() {
-            // Get the token from the URL query string
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
 
+            // State 1: No Token Provided
             if (!token) {
-                messageDiv.innerHTML = '<p class="message error">No verification token found in the URL.</p>';
+                iconEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size: 4rem; color: #f39c12;"></i>';
+                titleEl.textContent = 'Invalid Link';
+                msgEl.textContent = 'No verification token found. Please click the exact link from your email.';
                 return;
             }
 
@@ -77,35 +96,38 @@
                 const result = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(result.message);
+                    throw new Error(result.message || "Verification failed");
                 }
 
-                // Success
-                messageDiv.innerHTML = `<p class="message success">${result.message}</p><p><a href="login.html">Click here to Login</a></p>`;
+                // State 2: Success
+                iconEl.innerHTML = '<i class="fas fa-check-circle" style="font-size: 4.5rem; color: #2ecc71;"></i>';
+                titleEl.textContent = 'Account Verified!';
+                msgEl.textContent = result.message;
+                actionContainer.style.display = 'block';
+
+                if (typeof showToast === 'function') {
+                    showToast("Email verified successfully!", "success");
+                }
 
             } catch (err) {
-                messageDiv.innerHTML = `<p class="message error">Verification failed: ${err.message}</p>`;
+                // State 3: API Error (e.g., token expired)
+                iconEl.innerHTML = '<i class="fas fa-times-circle" style="font-size: 4.5rem; color: #e74c3c;"></i>';
+                titleEl.textContent = 'Verification Failed';
+                msgEl.textContent = err.message;
+                
+                // Change the button to redirect them to register or login to try again
+                actionBtn.textContent = 'Go to Homepage';
+                actionBtn.href = 'index.html';
+                actionContainer.style.display = 'block';
+
+                if (typeof showToast === 'function') {
+                    showToast(err.message, "error");
+                }
             }
         }
 
-        // Run verification when the page loads
-        verifyEmail();
+        // Run verification immediately upon load
+        window.addEventListener('DOMContentLoaded', verifyEmail);
     </script>
-
-        <footer>
-            <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
-        </footer>
-
-        <script>
-        const hamburger = document.querySelector('.hamburger');
-        const navLinks = document.querySelector('.nav-links');
-
-        hamburger.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            hamburger.classList.toggle('open');
-        });
-    </script>
-
-    </body>
-
+</body>
 </html>

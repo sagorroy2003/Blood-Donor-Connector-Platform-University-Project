@@ -1,44 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Blood Donor-NSTU | Save Lives</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Donor-NSTU | Save Lives</title>
 
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-            rel="stylesheet">
-        <link rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-        <link rel="stylesheet" href="style.css">
-    </head>
-    <body>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-        <header>
-            <nav class="navbar">
-                <div class="logo">
-                    <a href="index.html">Blood Donor-<span
-                            class="nstu-box">NSTU</span></a>
-                </div>
-                <ul class="nav-links">
-                    <li><a href="dashboard.html">Dashboard</a></li>
-                    <li><a href="register.html">Register</a></li>
-                    <li><a href="login.html">Login</a></li>
-                    <li><a href="forgot-password.html">Forgot Password</a></li>
-                </ul>
-                <div class="hamburger">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </nav>
-        </header>
+    <header>
+        <nav class="navbar">
+            <div class="logo">
+                <a href="index.html">Blood Donor-<span class="nstu-box">NSTU</span></a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html" class="active">Home</a></li>
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="login.html">Login</a></li>
+                <li><a href="register.html">Register</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
 
+    <main>
         <section class="hero">
             <div class="hero-overlay">
                 <h1>You Can Save a Life Today</h1>
-                <p>Real people in Noakhali and nearby areas need blood right
-                    now.<br>Every drop counts.</p>
+                <p>Real people in Noakhali and nearby areas need blood right now.<br>Every drop counts.</p>
 
                 <a href="register.html" class="hero-main-btn">
                     <i class="fas fa-user-plus"></i> Join Now – Save Lives
@@ -47,34 +43,27 @@
         </section>
 
         <section class="public-feed-section">
-            <div class="section-header">
-                <h2><i class="fas fa-heart-pulse"></i> Active Blood
-                    Requests</h2>
-                <p>Urgent needs from our community. Register to contact the
-                    recipient.</p>
-            </div>
+            <div class="container">
+                <div class="section-header">
+                    <h2><i class="fas fa-heart-pulse"></i> Active Blood Requests</h2>
+                    <p>Urgent needs from our community. Register to contact the recipient.</p>
+                </div>
 
-            <div id="public-requests-list" class="requests-grid">
-                <div class="loading-state">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Loading urgent requests...</p>
+                <div id="public-requests-list">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading urgent requests...</p>
+                    </div>
                 </div>
             </div>
         </section>
+    </main>
 
-        <footer>
-            <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
-        </footer>
+    <footer>
+        <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
+    </footer>
 
-        <script src="index.js"></script>
-
-        <script>
-        const hamburger = document.querySelector('.hamburger');
-        const navLinks = document.querySelector('.nav-links');
-        hamburger.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            hamburger.classList.toggle('open');
-        });
-    </script>
-    </body>
+    <script src="toast.js"></script>
+    <script src="index.js"></script>
+</body>
 </html>

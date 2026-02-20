@@ -1,72 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Login - Blood Donor-NSTU</title>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Blood Donor-NSTU</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet">
+        <link rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
-</head>
+        <header>
+            <nav class="navbar">
+                <div class="logo">
+                    <a href="index.html">
+                        Blood Donor-<span class="nstu-box">NSTU</span>
+                    </a>
+                </div>
+                <ul class="nav-links">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="register.html">Register</a></li>
+                    <li><a href="login.html" class="active">Login</a></li>
+                </ul>
+                <div class="hamburger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </nav>
+        </header>
 
-<body>
-    <header>
-        <nav class="navbar">
-            <div class="logo">
-                <a href="dashboard.html">
-                    Blood Donor-<span class="nstu-box">NSTU</span>
-                </a>
+        <main class="main-content">
+
+            <div id="form-container">
+
+                <div id="header-text">
+                    <i class="fas fa-user-circle"></i>
+                    <h1>Welcome Back</h1>
+                    <p>Login to your account to save lives.</p>
+                </div>
+
+                <form id="login-form">
+                    <label for="email"><i class="fas fa-envelope"></i> Email
+                        Address</label>
+                    <input type="email" id="email"
+                        placeholder="e.g., user@gmail.com" required>
+
+                    <label for="password"><i class="fas fa-lock"></i>
+                        Password</label>
+                    <input type="password" id="password"
+                        placeholder="Enter your password" required>
+
+                    <div>
+                        <a href="forgot-password.html">Forgot Password?</a>
+                    </div>
+
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+
+                <div>
+                    <p>
+                        Don't have an account? <a href="register.html">Register
+                            here</a>
+                    </p>
+                </div>
+
             </div>
-            <ul class="nav-links">
-                <li><a href="dashboard.html">Dashboard</a></li>
-                <li><a href="register.html">Register</a></li>
-                <li><a href="login.html">Login</a></li>
-                <li><a href="forgot-password.html">Forgot Password</a></li>
-            </ul>
-            <div class="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        </nav>
-    </header>
 
-    <div class="container">
+        </main>
 
-        <h1>Login to Your Account</h1>
+        <footer>
+            <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
+        </footer>
 
-        <form id="login-form">
-            <label for="email"><i class="fas fa-envelope"></i> Email:</label>
-            <input type="email" id="email" required>
-
-            <label for="password"><i class="fas fa-lock"></i> Password:</label>
-            <input type="password" id="password" required>
-
-            <button type="submit"><i class="fas fa-sign-in-alt"></i> Login</button>
-        </form>
-
-        <p id="message"></p>
-        <p><a href="forgot-password.html">Forgot Password?</a></p>
-        <p>Don't have an account? <a href="register.html">Register here</a></p>
-
+        <script src="toast.js"></script>
         <script src="login.js"></script>
-    </div>
-
-    <footer>
-        <p>© 2026 Blood Donor-NSTU | Made with 🤍 to save lives</p>
-    </footer>
-
-    <script>
-        const hamburger = document.querySelector('.hamburger');
-        const navLinks = document.querySelector('.nav-links');
-
-        hamburger.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            hamburger.classList.toggle('open');
-        });
-    </script>
-</body>
-
+    </body>
 </html>

@@ -1,1051 +1,436 @@
 require("dotenv").config();
-const crypto = require("crypto");
-const sgMail = require("@sendgrid/mail");
-const authMiddleware = require("./authMiddleware");
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const sgMail = require("@sendgrid/mail");
+const crypto = require("crypto");
+const authMiddleware = require("./authMiddleware");
 
 const app = express();
-const port = process.env.PORT || 3001; // Use environment port or default
+const PORT = process.env.PORT || 3001;
 
-// --- Middlewares ---
+// --- 1. Middleware ---
 app.use(cors());
 app.use(express.json());
 
-// --- Database Connection Pool ---
-const pool = mysql.createPool({
+// --- 2. Database Configuration ---
+const dbConfig = {
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 4000, // Default to TiDB port
-    ssl: {
-        // Enable SSL/TLS for secure connection to TiDB Cloud
-    },
+    port: process.env.DB_PORT || 4000,
+    ssl: {}, // Secure connection for TiDB/Cloud DBs
     connectionLimit: 10,
     waitForConnections: true,
     queueLimit: 0,
-});
+};
 
-// --- Test DB Connection on Startup ---
-pool
-    .getConnection()
-    .then((connection) => {
-        console.log("Successfully connected to the database!");
-        connection.release();
-    })
-    .catch((err) => {
-        console.error("Error connecting to database:", err);
-        // Optional: Exit if DB connection fails on startup
-        // process.exit(1);
-    });
+const pool = mysql.createPool(dbConfig);
 
-// --- API Endpoints ---
-
-// --- NEW: HEALTH CHECK ENDPOINT FOR RENDER ---
-app.get("/", (req, res) => {
-    res.status(200).json({
-        message: "Welcome to the Blood Donor Connector API! Service is running."
-    });
-});
-
-// GET Blood Types
-app.get("/api/bloodtypes", async (req, res) => {
+// Database Connection Test
+(async () => {
     try {
-        const [rows] = await pool.query(
-            "SELECT * FROM BloodTypes ORDER BY blood_type_id"
-        );
-        res.json(rows);
-    } catch (err) {
-        console.error("Error fetching blood types:", err);
-        res.status(500).json({ message: "Error fetching blood types" });
-    }
-});
-
-// --- UPDATE: API ENDPOINT FOR USER REGISTRATION ---
-app.post("/api/register", async (req, res) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const { name, email, password, date_of_birth, blood_type_id, contact_phone, city } = req.body;
-
-        if (!name || !email || !password || !city) {
-            await connection.rollback();
-            connection.release();
-            return res.status(400).json({ message: 'Missing required fields.' });
-        }
-
-        // 1. Check if email already exists
-        const [existingUserRows] = await connection.query('SELECT user_id, is_verified FROM Users WHERE email = ?', [email]);
-        const existingUser = existingUserRows[0];
-
-        // 2. Check for duplicate phone number
-        if (contact_phone) { // Only check if a phone number was provided
-            let phoneQuery = 'SELECT user_id FROM Users WHERE contact_phone = ?';
-            const phoneQueryParams = [contact_phone];
-
-            if (existingUser) {
-                // This is an UPDATE. We must check if the phone is used by
-                // *anyone else* (anyone NOT matching this user's ID).
-                phoneQuery += ' AND user_id != ?';
-                phoneQueryParams.push(existingUser.user_id);
-            }
-
-            // Now run the check
-            const [existingPhoneRows] = await connection.query(phoneQuery, phoneQueryParams);
-
-            if (existingPhoneRows.length > 0) {
-                // This phone number is already in use by another account. Reject.
-                await connection.rollback();
-                connection.release();
-                return res.status(409).json({ message: 'This phone number is already registered to another account.' });
-            }
-        }
-
-        //Hash password and create token
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-
-        if (existingUser) {
-            // Case 1: Email exists AND IS VERIFIED
-            if (existingUser.is_verified) {
-                await connection.rollback();
-                connection.release();
-                return res.status(400).json({ message: 'Email already exists and is verified.' });
-            }
-
-            // Case 2: Email exists AND IS NOT VERIFIED (The problem case)
-            // Update the stale record with the new user's info
-            console.log(`Updating stale, unverified user record for: ${email}`);
-            const updateSql = `
-                UPDATE Users 
-                SET name = ?, password_hash = ?, date_of_birth = ?, blood_type_id = ?, 
-                    contact_phone = ?, city = ?, verification_token = ?, is_verified = FALSE
-                WHERE user_id = ?
-            `;
-            await connection.query(updateSql, [
-                name, passwordHash, date_of_birth, blood_type_id || null, contact_phone || null, city,
-                verificationToken, existingUser.user_id
-            ]);
-
-        } else {
-            // Case 3: Email does not exist. Create a new user.
-            const insertSql = `
-              INSERT INTO Users (name, email, password_hash, date_of_birth, blood_type_id, contact_phone, city, is_verified, verification_token)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            await connection.query(insertSql, [
-                name, email, passwordHash, date_of_birth, blood_type_id || null, contact_phone || null, city, false, verificationToken
-            ]);
-        }
-
-        // --- Send Verification Email (for both new and updated users) ---
-        const frontendUrl = process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`;
-        const verificationLink = `${frontendUrl}/verify-email.html?token=${verificationToken}`;
-
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        const emailMessage = {
-            to: email,
-            from: process.env.SENDGRID_FROM_EMAIL,
-            subject: 'Verify Your Email for Blood Donor Connector',
-            html: `
-                <p>Hi ${name},</p>
-                <p>Thank you for registering! Please click the link below to verify your email address:</p>
-                <p><a href="${verificationLink}">${verificationLink}</a></p>
-                <p>If you did not register for this, please ignore this email.</p>
-            `,
-        };
-
-        try {
-            await sgMail.send(emailMessage);
-            console.log('Verification email sent to ' + email);
-        } catch (emailError) {
-            console.error('SendGrid Error during registration for ' + email + ':', emailError.toString());
-            // Don't fail the whole transaction, but log the error
-        }
-        // --- End Send Email ---
-
-        await connection.commit();
-        connection.release();
-        res.status(201).json({ message: "Registration successful! Please check your email to verify your account." });
-
-    } catch (err) {
-        await connection.rollback();
-        connection.release();
-        console.error('Error during registration:', err);
-        res.status(500).json({ message: "Error registering user" });
-    }
-});
-
-// GET Email Verification Handler
-app.get("/api/verify-email", async (req, res) => {
-    try {
-        const { token } = req.query;
-        if (!token)
-            return res
-                .status(400)
-                .json({ message: "Verification token is missing." });
-
-        const [rows] = await pool.query(
-            "SELECT user_id, is_verified FROM Users WHERE verification_token = ?",
-            [token]
-        );
-        const user = rows[0];
-
-        if (!user)
-            return res
-                .status(400)
-                .json({ message: "Invalid or expired verification token." });
-        if (user.is_verified)
-            return res
-                .status(200)
-                .json({ message: "Email already verified. You can log in." });
-
-        await pool.query(
-            "UPDATE Users SET is_verified = TRUE, verification_token = NULL WHERE user_id = ?",
-            [user.user_id]
-        );
-        res
-            .status(200)
-            .json({ message: "Email verified successfully! You can now log in." });
-    } catch (err) {
-        console.error("Email verification error:", err);
-        res.status(500).json({ message: "Error verifying email." });
-    }
-});
-
-// POST User Login
-app.post("/api/login", async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        if (!email || !password)
-            return res.status(400).json({ message: "Email and password required." });
-
-        const [rows] = await pool.query("SELECT * FROM Users WHERE email = ?", [
-            email,
-        ]);
-        const user = rows[0];
-        if (!user)
-            return res.status(400).json({ message: "Invalid email or password" });
-
-        if (!user.is_verified)
-            return res
-                .status(401)
-                .json({ message: "Account not verified. Please check your email." });
-
-        const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch)
-            return res.status(400).json({ message: "Invalid email or password" });
-
-        const payload = {
-            user: { id: user.user_id, name: user.name, email: user.email },
-        };
-        const token = jwt.sign(payload, process.env.JWT_SECRET, {
-            expiresIn: "3h",
-        });
-        res.json({ token });
-    } catch (err) {
-        console.error("Login error:", err);
-        res.status(500).json({ message: "Server error during login" });
-    }
-});
-
-// GET User Profile (Protected)
-app.get("/api/profile", authMiddleware, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const [rows] = await pool.query(
-            "SELECT user_id, name, email, date_of_birth, contact_phone, city, last_donation_date FROM Users WHERE user_id = ?",
-            [userId]
-        );
-        if (!rows[0]) return res.status(404).json({ message: "User not found" });
-        res.json(rows[0]);
-    } catch (err) {
-        console.error("Profile fetch error:", err);
-        res.status(500).json({ message: "Server error fetching profile" });
-    }
-});
-
-// --- UPDATE: PROTECTED API ENDPOINT TO CREATE A BLOOD REQUEST ---
-app.post("/api/requests", authMiddleware, async (req, res) => {
-    const connection = await pool.getConnection(); // Use connection for transaction
-    try {
-        await connection.beginTransaction(); // Start transaction
-
-        // 1. Get 'date_needed' from the request body
-        const { blood_type_id, reason, city, date_needed } = req.body;
-        const recipient_id = req.user.id; // Use req.user.id (as in your code)
-        const date_requested = new Date();
-        const status = "active";
-
-        // --- Add validation for the new field ---
-        if (!blood_type_id || !city || !date_needed) {
-            await connection.rollback();
-            connection.release();
-            return res.status(400).json({ message: 'Missing required fields (city, blood type, or date needed).' });
-        }
-        // ----------------------------------------
-
-        // 2. Insert the request (inside transaction)
-        const insertSql = `
-          INSERT INTO BloodRequests 
-            (recipient_id, blood_type_id, city, reason, date_requested, status, date_needed)  /* 2. ADDED 'date_needed' COLUMN */
-          VALUES (?, ?, ?, ?, ?, ?, ?) /* 3. ADDED '?' PLACEHOLDER */
-        `;
-        const [insertResult] = await connection.query(insertSql, [
-            recipient_id, 
-            blood_type_id, 
-            city, 
-            reason, 
-            date_requested, 
-            status,
-            date_needed // 4. ADDED 'date_needed' VARIABLE
-        ]);
-        const newRequestId = insertResult.insertId; // Get the ID of the new request
-
-        // --- ADD NOTIFICATION LOGIC ---
-        // (This part of your code is perfect and remains unchanged)
-        // 2. Find eligible donors (inside transaction)
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-        const findDonorsSql = `
-            SELECT user_id, email, name 
-            FROM Users 
-            WHERE city = ? 
-              AND blood_type_id = ? 
-              AND user_id != ? 
-              AND (last_donation_date IS NULL OR last_donation_date <= ?)
-              AND is_verified = TRUE
-        `;
-        const [eligibleDonors] = await connection.query(findDonorsSql, [
-            city, blood_type_id, recipient_id, threeMonthsAgo
-        ]);
-
-        // 3. Prepare and Send Emails
-        if (eligibleDonors.length > 0) {
-            console.log(`Found ${eligibleDonors.length} eligible donors. Preparing emails...`);
-
-            // Get recipient name and blood type for email content
-            const [recipientData] = await connection.query('SELECT name FROM Users WHERE user_id = ?', [recipient_id]);
-            const recipientName = recipientData[0]?.name || 'Someone';
-            const [bloodTypeData] = await connection.query('SELECT type FROM BloodTypes WHERE blood_type_id = ?', [blood_type_id]);
-            const bloodTypeName = bloodTypeData[0]?.type || 'Unknown';
-
-            // Get frontend URL from environment variable
-            const frontendUrl = process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`;
-
-            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-            for (const donor of eligibleDonors) {
-                const emailMessage = {
-                    to: donor.email,
-                    from: process.env.SENDGRID_FROM_EMAIL, // Use your verified sender
-                    subject: `Urgent Blood Request: ${bloodTypeName} needed in ${city}`,
-                    html: `
-                        <p>Hi ${donor.name},</p>
-                        <p>${recipientName} urgently needs <strong>${bloodTypeName}</strong> blood in <strong>${city}</strong>.</p>
-                        <p>Reason: ${reason || 'Not specified'}</p>
-                        <p>If you are available and eligible to donate, please click the link below to log in, view, and accept the request:</p>
-                        <p><a href="${frontendUrl}/login.html">Log in to Your Account</a></p>
-                        <p>Thank you for your potential help!</p>
-                    `, 
-                };
-
-                // Send the email
-                sgMail.send(emailMessage)
-                    .then(() => console.log('Email sent to ' + donor.email))
-                    .catch((error) => console.error('SendGrid Error for ' + donor.email + ':', error.toString()));
-
-                // Create the notification record in the DB
-                const notificationSql = `
-                    INSERT INTO RequestNotifications (request_id, donor_id, status) 
-                    VALUES (?, ?, ?)
-                    ON DUPLICATE KEY UPDATE status = ? 
-                `;
-                await connection.query(notificationSql, [newRequestId, donor.user_id, 'sent', 'sent']);
-            }
-        } else {
-            console.log("No eligible donors found for this request.");
-        }
-        // --- END NOTIFICATION LOGIC ---
-
-        await connection.commit(); // Commit transaction
-        connection.release();
-        res.status(201).json({ message: 'Blood request created and notifications sent (if eligible donors found)!' });
-
-    } catch (err) {
-        await connection.rollback(); // Rollback on any error
-        connection.release();
-        console.error('Error creating request or sending notifications:', err);
-        res.status(500).json({ message: 'Server error while creating request' });
-    }
-});
-
-// GET User's Own Requests (Protected)
-app.get("/api/requests/myrequests", authMiddleware, async (req, res) => {
-    try {
-        const recipient_id = req.user.id;
-        const sql = `
-          SELECT br.*, bt.type AS blood_type FROM BloodRequests AS br
-          JOIN BloodTypes AS bt ON br.blood_type_id = bt.blood_type_id
-          WHERE br.recipient_id = ? ORDER BY br.date_requested DESC
-        `;
-        const [requests] = await pool.query(sql, [recipient_id]);
-        res.json(requests);
-    } catch (err) {
-        console.error("Error fetching user's requests:", err);
-        res.status(500).json({ message: "Server error fetching requests" });
-    }
-});
-
-// --- NEW: PROTECTED API ENDPOINT FOR A DONOR TO ACCEPT A REQUEST ---
-app.post('/api/requests/:requestId/accept', authMiddleware, async (req, res) => {
-    try {
-        const donor_id = req.user.id; // Get donor's ID from token
-        const request_id = req.params.requestId; // Get request ID from the URL
-
-        // --- Transaction Start ---
         const connection = await pool.getConnection();
-        await connection.beginTransaction();
-
-        try {
-            // 1. Check if the request is still 'active'
-            const [requestRows] = await connection.query(
-                'SELECT status, recipient_id FROM BloodRequests WHERE request_id = ?', // Also get recipient_id
-                [request_id]
-            );
-
-            if (!requestRows[0] || requestRows[0].status !== 'active') {
-                await connection.rollback(); // Undo transaction
-                connection.release();
-                return res.status(400).json({ message: 'Request is no longer active or does not exist.' });
-            }
-
-            const recipient_id = requestRows[0].recipient_id; // Get the recipient's ID
-
-            // 2. Update the BloodRequest status to 'on_hold'
-            await connection.query(
-                'UPDATE BloodRequests SET status = ? WHERE request_id = ?',
-                ['on_hold', request_id]
-            );
-
-            // 3. Create or Update the RequestNotification for this donor/request
-            const notificationSql = `
-                INSERT INTO RequestNotifications (request_id, donor_id, status) 
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE status = ?
-            `;
-            await connection.query(notificationSql, [request_id, donor_id, 'accepted', 'accepted']);
-
-            // --- Notify the RECIPIENT that a donor has accepted ---
-            try {
-                // Get recipient's email/name
-                const [recipientData] = await connection.query('SELECT email, name FROM Users WHERE user_id = ?', [recipient_id]);
-                // Get donor's name/phone
-                const [donorData] = await connection.query('SELECT name, contact_phone FROM Users WHERE user_id = ?', [donor_id]);
-
-                if (recipientData.length > 0 && donorData.length > 0) {
-                    // Define the frontend URL
-                    const frontendUrl = process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`;
-
-                    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-                    const emailMessage = {
-                        to: recipientData[0].email,
-                        from: process.env.SENDGRID_FROM_EMAIL,
-                        subject: 'A Donor Has Accepted Your Blood Request!',
-                        html: `
-                            <p>Hi ${recipientData[0].name},</p>
-                            <p>Good news! Donor <strong>${donorData[0].name}</strong> has accepted your blood request.</p>
-                            <p>You can contact them at: <strong>${donorData[0].contact_phone || 'Not Provided'}</strong>. Please coordinate the donation.</p>
-                            
-                            <hr>
-                            <p><strong>Important:</strong> After you have successfully received the donation, please log in to your dashboard and mark the request as 'Fulfilled'. This will update the donor's history and eligibility.</p>
-                            <p><a href="${frontendUrl}/dashboard.html">Go to Your Dashboard</a></p>
-                        `, // <-- UPDATED EMAIL HTML
-                    };
-
-                    sgMail.send(emailMessage)
-                        .then(() => console.log('Acceptance notification sent to recipient: ' + recipientData[0].email))
-                        .catch((error) => console.error('SendGrid Error (notifying recipient):', error.toString()));
-                }
-            } catch (notifyError) {
-                console.error('Error during recipient notification:', notifyError);
-            }
-            // --- End Notification ---
-
-            // If all queries worked, commit the transaction
-            await connection.commit();
-            connection.release();
-
-            res.json({ message: 'Request accepted successfully! Please contact the recipient.' });
-
-        } catch (innerErr) {
-            // If any error occurred inside the transaction, roll back
-            await connection.rollback();
-            connection.release();
-            throw innerErr; // Re-throw the error to be caught by the outer catch
-        }
-        // --- Transaction End ---
-
+        console.log("🚀 [DB]: Database connected successfully to:", dbConfig.host);
+        connection.release();
     } catch (err) {
-        console.error('Error accepting request:', err);
-        res.status(500).json({ message: 'Server error while accepting request' });
+        console.error("❌ [DB Error]: Initial connection failed:", err.message);
     }
+})();
+
+// --- 3. Helper Functions ---
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// --- 4. Public Endpoints ---
+
+/** Health Check for Render/Deployment */
+app.get("/", (req, res) => {
+    res.status(200).json({ status: "online", message: "Blood Donor Connector API is running." });
 });
 
-// POST Cancel Own Acceptance (Protected, Donor Action)
-app.post("/api/requests/:requestId/cancel-acceptance", authMiddleware, async (req, res) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-        const donor_id = req.user.id;
-        const request_id = req.params.requestId;
-
-        const [notificationRows] = await connection.query(
-            "SELECT rn.status AS notification_status, br.status AS request_status, br.recipient_id FROM RequestNotifications rn JOIN BloodRequests br ON rn.request_id = br.request_id WHERE rn.request_id = ? AND rn.donor_id = ?",
-            [request_id, donor_id]
-        );
-        if (
-            !notificationRows[0] ||
-            notificationRows[0].notification_status !== "accepted" ||
-            notificationRows[0].request_status !== "on_hold"
-        ) {
-            await connection.rollback();
-            connection.release();
-            return res
-                .status(400)
-                .json({
-                    message:
-                        "Cannot cancel: Request not accepted by you or not on hold.",
-                });
-        }
-        const recipient_id = notificationRows[0].recipient_id;
-
-        await connection.query(
-            "UPDATE RequestNotifications SET status = ? WHERE request_id = ? AND donor_id = ?",
-            ["cancelled_by_donor", request_id, donor_id]
-        );
-        await connection.query(
-            "UPDATE BloodRequests SET status = ? WHERE request_id = ?",
-            ["active", request_id]
-        );
-
-        // --- Optional: Notify Recipient ---
-        try {
-            const [recipientData] = await connection.query(
-                "SELECT email, name FROM Users WHERE user_id = ?",
-                [recipient_id]
-            );
-            const [donorData] = await connection.query(
-                "SELECT name FROM Users WHERE user_id = ?",
-                [donor_id]
-            );
-            if (recipientData.length > 0 && donorData.length > 0) {
-                sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-                const emailMessage = {
-                    to: recipientData[0].email,
-                    from: process.env.SENDGRID_FROM_EMAIL,
-                    subject: "Donor Cancelled Acceptance",
-                    html: `<p>Hi ${recipientData[0].name},</p><p>Donor ${donorData[0].name} is no longer able to fulfill your blood request. The request is now active again for other donors.</p>`,
-                };
-                sgMail
-                    .send(emailMessage)
-                    .catch((err) =>
-                        console.error(
-                            "Error notifying recipient of cancellation:",
-                            err.toString()
-                        )
-                    );
-            }
-        } catch (notifyError) {
-            console.error(
-                "Failed to send recipient cancellation notification:",
-                notifyError
-            );
-        }
-        // --- End Notify Recipient ---
-
-        await connection.commit();
-        connection.release();
-        res.json({
-            message:
-                "Acceptance cancelled successfully. The request is active again.",
-        });
-    } catch (err) {
-        await connection.rollback();
-        connection.release();
-        console.error("Error cancelling acceptance:", err);
-        res
-            .status(500)
-            .json({ message: "Server error while cancelling acceptance" });
-    }
-});
-
-// POST Cancel Accepted Donor (Protected, Recipient Action)
-app.post("/api/requests/:requestId/cancel-donor", authMiddleware, async (req, res) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-        const recipient_id = req.user.id;
-        const request_id = req.params.requestId;
-
-        const [requestRows] = await connection.query(
-            "SELECT recipient_id, status FROM BloodRequests WHERE request_id = ?",
-            [request_id]
-        );
-        if (
-            !requestRows[0] ||
-            requestRows[0].recipient_id !== recipient_id ||
-            requestRows[0].status !== "on_hold"
-        ) {
-            await connection.rollback();
-            connection.release();
-            return res
-                .status(400)
-                .json({
-                    message: "Cannot cancel donor: Request not yours or not on hold.",
-                });
-        }
-
-        // Find donor and update notification
-        const [donorNotifications] = await connection.query(
-            "SELECT donor_id FROM RequestNotifications WHERE request_id = ? AND status = ?",
-            [request_id, "accepted"]
-        );
-        const donor_id =
-            donorNotifications.length > 0 ? donorNotifications[0].donor_id : null;
-
-        const [donorUpdateResult] = await connection.query(
-            "UPDATE RequestNotifications SET status = ? WHERE request_id = ? AND status = ?",
-            ["cancelled_by_recipient", request_id, "accepted"]
-        );
-        if (donorUpdateResult.affectedRows === 0)
-            console.warn(
-                `No accepted donor found for request ${request_id} during cancellation by recipient ${recipient_id}`
-            );
-
-        await connection.query(
-            "UPDATE BloodRequests SET status = ? WHERE request_id = ?",
-            ["active", request_id]
-        );
-
-        // --- Optional: Notify Cancelled Donor ---
-        if (donor_id) {
-            try {
-                const [donorData] = await connection.query(
-                    "SELECT email, name FROM Users WHERE user_id = ?",
-                    [donor_id]
-                );
-                const [recipientData] = await connection.query(
-                    "SELECT name FROM Users WHERE user_id = ?",
-                    [recipient_id]
-                );
-                if (donorData.length > 0 && recipientData.length > 0) {
-                    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-                    const emailMessage = {
-                        to: donorData[0].email,
-                        from: process.env.SENDGRID_FROM_EMAIL,
-                        subject: "Blood Donation No Longer Required",
-                        html: `<p>Hi ${donorData[0].name},</p><p>Thank you for offering to help ${recipientData[0].name}. Your assistance is no longer required for this specific request. The request has been made available to other donors again.</p>`,
-                    };
-                    sgMail
-                        .send(emailMessage)
-                        .catch((err) =>
-                            console.error(
-                                "Error notifying cancelled donor:",
-                                err.toString()
-                            )
-                        );
-                }
-            } catch (notifyError) {
-                console.error(
-                    "Failed to send cancelled donor notification:",
-                    notifyError
-                );
-            }
-        }
-        // --- End Notify Cancelled Donor ---
-
-        await connection.commit();
-        connection.release();
-        res.json({
-            message: "Donor cancelled successfully. The request is active again.",
-        });
-    } catch (err) {
-        await connection.rollback();
-        connection.release();
-        console.error("Error cancelling donor:", err);
-        res.status(500).json({ message: "Server error while cancelling donor" });
-    }
-});
-
-// POST Mark Request Fulfilled (Protected, Recipient Action)
-app.post("/api/requests/:requestId/fulfill", authMiddleware, async (req, res) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-        const recipient_id = req.user.id;
-        const request_id = req.params.requestId;
-
-        const [requestRows] = await connection.query(
-            "SELECT recipient_id, status FROM BloodRequests WHERE request_id = ?",
-            [request_id]
-        );
-        if (
-            !requestRows[0] ||
-            requestRows[0].recipient_id !== recipient_id ||
-            requestRows[0].status !== "on_hold"
-        ) {
-            await connection.rollback();
-            connection.release();
-            return res
-                .status(400)
-                .json({
-                    message: "Cannot fulfill: Request not yours or not on hold.",
-                });
-        }
-
-        const [notificationRows] = await connection.query(
-            "SELECT donor_id FROM RequestNotifications WHERE request_id = ? AND status = ?",
-            [request_id, "accepted"]
-        );
-        if (!notificationRows[0]) {
-            await connection.rollback();
-            connection.release();
-            return res
-                .status(404)
-                .json({ message: "No accepted donor found for this request." });
-        }
-        const donor_id = notificationRows[0].donor_id;
-
-        await connection.query(
-            "UPDATE BloodRequests SET status = ? WHERE request_id = ?",
-            ["fulfilled", request_id]
-        );
-        await connection.query(
-            "UPDATE RequestNotifications SET status = ? WHERE request_id = ? AND donor_id = ?",
-            ["fulfilled", request_id, donor_id]
-        );
-
-        const donation_date = new Date();
-        await connection.query(
-            "INSERT INTO Donations (donor_id, recipient_id, request_id, donation_date) VALUES (?, ?, ?, ?)",
-            [donor_id, recipient_id, request_id, donation_date]
-        );
-        await connection.query(
-            "UPDATE Users SET last_donation_date = ? WHERE user_id = ?",
-            [donation_date, donor_id]
-        );
-
-        await connection.commit();
-        connection.release();
-        res.json({ message: "Request marked as fulfilled successfully!" });
-    } catch (err) {
-        await connection.rollback();
-        connection.release();
-        console.error("Error fulfilling request:", err);
-        res
-            .status(500)
-            .json({ message: "Server error while fulfilling request" });
-    }
-});
-
-// ====================== PUBLIC ENDPOINT (No Login Required) ======================
-// Anyone can see active blood requests on the homepage
+/** Fetch Public Active Requests for Homepage */
 app.get("/api/requests/public", async (req, res) => {
     try {
         const sql = `
-            SELECT 
-                br.request_id,
-                br.city,
-                br.reason,
-                br.date_needed,
-                br.date_requested,
-                u.name AS recipient_name,
-                bt.type AS blood_type
+            SELECT br.request_id, br.city, br.reason, br.date_needed, br.date_requested, 
+                   u.name AS recipient_name, bt.type AS blood_type
             FROM BloodRequests br
             JOIN Users u ON br.recipient_id = u.user_id
             JOIN BloodTypes bt ON br.blood_type_id = bt.blood_type_id
             WHERE br.status = 'active'
-            ORDER BY br.date_requested DESC
-            LIMIT 8
+            ORDER BY br.date_requested DESC LIMIT 8
         `;
-
         const [requests] = await pool.query(sql);
         res.json(requests);
     } catch (err) {
-        console.error("Public requests error:", err);
+        console.error("❌ [API]: Error fetching public requests:", err.message);
+        res.status(500).json({ message: "Server error fetching public data" });
+    }
+});
+
+/** Static Blood Types List */
+app.get("/api/bloodtypes", async (req, res) => {
+    try {
+        const [rows] = await pool.query("SELECT * FROM BloodTypes ORDER BY blood_type_id");
+        res.json(rows);
+    } catch (err) {
+        console.error("❌ [API]: Error fetching blood types:", err.message);
+        res.status(500).json({ message: "Error fetching blood types" });
+    }
+});
+
+// --- 5. Authentication & User Management ---
+
+/** User Registration with Email Verification */
+app.post("/api/register", async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const { name, email, password, date_of_birth, blood_type_id, contact_phone, city } = req.body;
+
+        if (!name || !email || !password || !city) {
+            return res.status(400).json({ message: "Missing required fields." });
+        }
+
+        const [existingUserRows] = await connection.query("SELECT user_id, is_verified FROM Users WHERE email = ?", [email]);
+        const existingUser = existingUserRows[0];
+
+        // Phone Duplicate Check
+        if (contact_phone) {
+            let phoneQuery = "SELECT user_id FROM Users WHERE contact_phone = ?";
+            const params = [contact_phone];
+            if (existingUser) {
+                phoneQuery += " AND user_id != ?";
+                params.push(existingUser.user_id);
+            }
+            const [rows] = await connection.query(phoneQuery, params);
+            if (rows.length > 0) {
+                return res.status(409).json({ message: "Phone number already in use." });
+            }
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
+        const verificationToken = crypto.randomBytes(32).toString("hex");
+
+        if (existingUser) {
+            if (existingUser.is_verified) {
+                return res.status(400).json({ message: "Email already verified." });
+            }
+            const updateSql = `UPDATE Users SET name=?, password_hash=?, date_of_birth=?, blood_type_id=?, contact_phone=?, city=?, verification_token=?, is_verified=FALSE WHERE user_id=?`;
+            await connection.query(updateSql, [name, passwordHash, date_of_birth, blood_type_id || null, contact_phone || null, city, verificationToken, existingUser.user_id]);
+        } else {
+            const insertSql = `INSERT INTO Users (name, email, password_hash, date_of_birth, blood_type_id, contact_phone, city, is_verified, verification_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            await connection.query(insertSql, [name, email, passwordHash, date_of_birth, blood_type_id || null, contact_phone || null, city, false, verificationToken]);
+        }
+
+        // Email logic
+        const frontendUrl = process.env.VERCEL_FRONTEND_URL || "http://localhost:5500";
+        const emailMessage = {
+            to: email,
+            from: process.env.SENDGRID_FROM_EMAIL,
+            subject: "Verify Your Email",
+            html: `<p>Hi ${name},</p><p>Please verify your account: <a href="${frontendUrl}/verify-email.html?token=${verificationToken}">Verify Email</a></p>`,
+        };
+        await sgMail.send(emailMessage);
+
+        await connection.commit();
+        res.status(201).json({ message: "Registration successful! Please check your email." });
+    } catch (err) {
+        await connection.rollback();
+        console.error("❌ [Registration Error]:", err.message);
+        res.status(500).json({ message: "Registration failed." });
+    } finally {
+        connection.release();
+    }
+});
+
+/** Email Verification */
+app.get("/api/verify-email", async (req, res) => {
+    try {
+        const { token } = req.query;
+        const [rows] = await pool.query("SELECT user_id, is_verified FROM Users WHERE verification_token = ?", [token]);
+        const user = rows[0];
+
+        if (!user) return res.status(400).json({ message: "Invalid or expired token." });
+        if (user.is_verified) return res.status(200).json({ message: "Already verified." });
+
+        await pool.query("UPDATE Users SET is_verified = TRUE, verification_token = NULL WHERE user_id = ?", [user.user_id]);
+        res.status(200).json({ message: "Verification successful!" });
+    } catch (err) {
+        res.status(500).json({ message: "Error verifying email." });
+    }
+});
+
+/** User Login */
+app.post("/api/login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const [rows] = await pool.query("SELECT * FROM Users WHERE email = ?", [email]);
+        const user = rows[0];
+
+        if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+            return res.status(400).json({ message: "Invalid credentials." });
+        }
+        if (!user.is_verified) return res.status(401).json({ message: "Account not verified." });
+
+        const token = jwt.sign({ id: user.user_id, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: "3h" });
+        res.json({ token });
+    } catch (err) {
+        res.status(500).json({ message: "Login failed." });
+    }
+});
+
+/** Forgot Password */
+app.post("/api/forgot-password", async (req, res) => {
+    try {
+        const { email } = req.body;
+        const [rows] = await pool.query("SELECT user_id, name, is_verified FROM Users WHERE email = ?", [email]);
+        const user = rows[0];
+
+        if (user && user.is_verified) {
+            const token = crypto.randomBytes(32).toString("hex");
+            const expires = new Date(Date.now() + 15 * 60 * 1000);
+            await pool.query("UPDATE Users SET verification_token=?, reset_token_expires=? WHERE user_id=?", [token, expires, user.user_id]);
+            
+            const frontendUrl = process.env.VERCEL_FRONTEND_URL || "http://localhost:5500";
+            await sgMail.send({
+                to: email,
+                from: process.env.SENDGRID_FROM_EMAIL,
+                subject: "Password Reset Request",
+                html: `<p>Reset link (15 mins): <a href="${frontendUrl}/reset-password.html?token=${token}">Reset Password</a></p>`,
+            });
+        }
+        res.json({ message: "If an account exists, a reset link has been sent." });
+    } catch (err) {
+        res.status(500).json({ message: "Error processing request." });
+    }
+});
+
+/** Reset Password */
+app.post("/api/reset-password", async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        const [rows] = await pool.query("SELECT user_id FROM Users WHERE verification_token = ? AND reset_token_expires > NOW()", [token]);
+        const user = rows[0];
+
+        if (!user) return res.status(400).json({ message: "Token invalid or expired." });
+
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(newPassword, salt);
+        await pool.query("UPDATE Users SET password_hash=?, verification_token=NULL, reset_token_expires=NULL WHERE user_id=?", [hash, user.user_id]);
+        res.json({ message: "Password reset successfully!" });
+    } catch (err) {
         res.status(500).json({ message: "Server error" });
     }
 });
 
-// GET Donor's Donation History (Protected)
-app.get("/api/donations/myhistory", authMiddleware, async (req, res) => {
+// --- 6. Protected Blood Request Routes ---
+
+/** Create Blood Request & Notify Eligible Donors */
+app.post("/api/requests", authMiddleware, async (req, res) => {
+    const connection = await pool.getConnection();
     try {
-        const donor_id = req.user.id;
-        const sql = `
-            SELECT d.donation_id, d.donation_date, u_recipient.name AS recipient_name,
-                   br.city AS request_city, bt.type AS blood_type_donated
-            FROM Donations AS d
-            JOIN Users AS u_recipient ON d.recipient_id = u_recipient.user_id
-            LEFT JOIN BloodRequests AS br ON d.request_id = br.request_id
-            LEFT JOIN BloodTypes AS bt ON br.blood_type_id = bt.blood_type_id
-            WHERE d.donor_id = ? ORDER BY d.donation_date DESC
-        `;
-        const [history] = await pool.query(sql, [donor_id]);
-        res.json(history);
+        await connection.beginTransaction();
+        const { blood_type_id, reason, city, date_needed } = req.body;
+        const recipient_id = req.user.id;
+        
+        if (!blood_type_id || !city || !date_needed) {
+            return res.status(400).json({ message: "Missing required fields." });
+        }
+
+        const [result] = await connection.query(
+            "INSERT INTO BloodRequests (recipient_id, blood_type_id, city, reason, date_requested, status, date_needed) VALUES (?,?,?,?,NOW(),'active',?)",
+            [recipient_id, blood_type_id, city, reason, date_needed]
+        );
+        const newRequestId = result.insertId;
+
+        // Notification Logic
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+        const [donors] = await connection.query(
+            "SELECT user_id, email, name FROM Users WHERE city=? AND blood_type_id=? AND user_id!=? AND (last_donation_date IS NULL OR last_donation_date <= ?) AND is_verified=TRUE",
+            [city, blood_type_id, recipient_id, threeMonthsAgo]
+        );
+
+        if (donors.length > 0) {
+            const [bloodType] = await connection.query("SELECT type FROM BloodTypes WHERE blood_type_id=?", [blood_type_id]);
+            for (const donor of donors) {
+                await sgMail.send({
+                    to: donor.email,
+                    from: process.env.SENDGRID_FROM_EMAIL,
+                    subject: `Urgent: ${bloodType[0].type} needed in ${city}`,
+                    html: `<p>A request has been made. Visit dashboard to accept.</p>`,
+                });
+                await connection.query("INSERT INTO RequestNotifications (request_id, donor_id, status) VALUES (?,?,'sent') ON DUPLICATE KEY UPDATE status='sent'", [newRequestId, donor.user_id]);
+            }
+        }
+
+        await connection.commit();
+        res.status(201).json({ message: "Request created and donors notified." });
     } catch (err) {
-        console.error("Error fetching donation history:", err);
-        res.status(500).json({ message: "Server error fetching donation history" });
+        await connection.rollback();
+        res.status(500).json({ message: "Error creating request." });
+    } finally {
+        connection.release();
     }
 });
 
-// --- NEW: API ENDPOINT TO REQUEST A PASSWORD RESET ---
-app.post('/api/forgot-password', async (req, res) => {
-    try {
-        const { email } = req.body;
-
-        // 1. Find the user by email
-        const [rows] = await pool.query('SELECT user_id, name, is_verified FROM Users WHERE email = ?', [email]);
-        const user = rows[0];
-
-        // !! SECURITY: Always send a success message, even if no user is found.
-        // This prevents attackers from "guessing" which emails are registered.
-        if (!user || !user.is_verified) {
-            console.log(`Password reset attempt for non-existent or unverified email: ${email}`);
-            return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
-        }
-
-        // 2. Generate a temporary reset token
-        const resetToken = crypto.randomBytes(32).toString('hex');
-
-        // 3. Set an expiration time (e.g., 15 minutes from now)
-        const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-        // 4. Save the token and expiration time to the user's record
-        await pool.query(
-            'UPDATE Users SET verification_token = ?, reset_token_expires = ? WHERE user_id = ?',
-            [resetToken, expires, user.user_id]
-        );
-
-        // 5. Send the reset email
-        const frontendUrl = process.env.VERCEL_FRONTEND_URL || `http://localhost:5500`;
-        const resetLink = `${frontendUrl}/reset-password.html?token=${resetToken}`;
-
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        const emailMessage = {
-            to: email,
-            from: process.env.SENDGRID_FROM_EMAIL,
-            subject: 'Your Password Reset Link',
-            html: `
-                <p>Hi ${user.name},</p>
-                <p>Someone (hopefully you) requested a password reset for your account. Please click the link below to set a new password. This link will expire in 15 minutes.</p>
-                <p><a href="${resetLink}">Reset Your Password</a></p>
-                <p>If you did not request this, you can safely ignore this email.</p>
-            `,
-        };
-
-        await sgMail.send(emailMessage);
-        console.log('Password reset email sent to ' + email);
-
-        res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
-
-    } catch (err) {
-        console.error('Forgot password error:', err);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// --- NEW: API ENDPOINT TO SET THE NEW PASSWORD ---
-app.post('/api/reset-password', async (req, res) => {
-    try {
-        const { token, newPassword } = req.body;
-
-        if (!token || !newPassword) {
-            return res.status(400).json({ message: 'Token and new password are required.' });
-        }
-
-        // 1. Find the user by the token AND check if the token is still valid (not expired)
-        const [rows] = await pool.query(
-            'SELECT user_id FROM Users WHERE verification_token = ? AND reset_token_expires > NOW()',
-            [token]
-        );
-
-        const user = rows[0];
-
-        if (!user) {
-            return res.status(400).json({ message: 'Password reset token is invalid or has expired.' });
-        }
-
-        // 2. Hash the new password
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(newPassword, salt);
-
-        // 3. Update the user's password and clear the reset token
-        await pool.query(
-            'UPDATE Users SET password_hash = ?, verification_token = NULL, reset_token_expires = NULL WHERE user_id = ?',
-            [passwordHash, user.user_id]
-        );
-
-        res.json({ message: 'Password has been reset successfully! You can now log in.' });
-
-    } catch (err) {
-        console.error('Reset password error:', err);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// === FINAL CLEAN VERSION - All active requests in same city ===
+/** FIXED: Available Requests (Matching Donor's City) */
 app.get("/api/requests/available", authMiddleware, async (req, res) => {
     try {
         const donor_id = req.user.id;
 
-        const [userRows] = await pool.query(
-            "SELECT city FROM Users WHERE user_id = ?",
-            [donor_id]
-        );
-
-        if (!userRows[0]) {
-            return res.status(404).json({ message: "Donor not found" });
-        }
+        // 1. Get Donor City
+        const [userRows] = await pool.query("SELECT city FROM Users WHERE user_id = ?", [donor_id]);
+        if (!userRows[0]) return res.status(404).json({ message: "User not found." });
 
         const donorCity = userRows[0].city.trim();
 
-        const [requests] = await pool.query(`
+        // 2. Fetch Matching Requests
+        const sql = `
             SELECT br.*, u.name AS recipient_name, bt.type AS blood_type
             FROM BloodRequests br
             JOIN Users u ON br.recipient_id = u.user_id
             JOIN BloodTypes bt ON br.blood_type_id = bt.blood_type_id
-            WHERE br.city = ?
-              AND br.status = 'active'
-              AND br.recipient_id != ?
+            WHERE br.city = ? AND br.status = 'active' AND br.recipient_id != ?
             ORDER BY br.date_requested DESC
-        `, [donorCity, donor_id]);
+        `;
+        const [requests] = await pool.query(sql, [donorCity, donor_id]);
 
-        console.log(`✅ Found ${requests.length} active requests in city "${donorCity}"`);
+        console.log(`🔎 [API]: Available requests for city "${donorCity}": ${requests.length}`);
 
-        res.json({ requests: requests });
-
+        // --- FIX: Return the array directly (don't wrap in { requests: requests }) ---
+        res.json(requests); 
     } catch (err) {
-        console.error("Error fetching available requests:", err);
+        console.error("❌ [API Error]:", err.message);
         res.status(500).json({ message: "Server error" });
     }
 });
 
-// --- NEW: PROTECTED API ENDPOINT TO GET DONOR'S ACCEPTED/PENDING REQUESTS ---
-app.get('/api/requests/accepted', authMiddleware, async (req, res) => {
+/** Donor: Accept a Request */
+app.post("/api/requests/:requestId/accept", authMiddleware, async (req, res) => {
+    const connection = await pool.getConnection();
     try {
-        const donor_id = req.user.id; // Get the logged-in donor's ID
-
-        // Find requests where this donor's notification status is 'accepted'
-        // AND the main request status is still 'on_hold' (meaning not fulfilled or cancelled yet)
-        const sql = `
-            SELECT 
-                br.request_id, 
-                br.city, 
-                br.reason, 
-                br.date_requested, 
-                br.status AS request_status,
-                u_recipient.name AS recipient_name, 
-                u_recipient.contact_phone AS recipient_phone, -- Include recipient's phone!
-                bt.type AS blood_type
-            FROM RequestNotifications AS rn
-            JOIN BloodRequests AS br ON rn.request_id = br.request_id
-            JOIN Users AS u_recipient ON br.recipient_id = u_recipient.user_id
-            JOIN BloodTypes AS bt ON br.blood_type_id = bt.blood_type_id
-            WHERE rn.donor_id = ? 
-              AND rn.status = 'accepted'
-              AND br.status = 'on_hold' 
-            ORDER BY br.date_requested DESC
-        `;
-
-        const [acceptedRequests] = await pool.query(sql, [donor_id]);
-
-        res.json(acceptedRequests);
-
-    } catch (err) {
-        console.error('Error fetching accepted requests:', err);
-        res.status(500).json({ message: 'Server error fetching accepted requests' });
-    }
-});
-
-// --- NEW: PROTECTED API ENDPOINT FOR RECIPIENT TO DELETE THEIR OWN REQUEST ---
-app.delete('/api/requests/:requestId', authMiddleware, async (req, res) => {
-    try {
-        const recipient_id = req.user.id; // Recipient's ID from token
+        await connection.beginTransaction();
+        const donor_id = req.user.id;
         const request_id = req.params.requestId;
 
-        const connection = await pool.getConnection();
-        await connection.beginTransaction();
-
-        try {
-            // 1. Verify this recipient owns the request
-            const [requestRows] = await connection.query(
-                'SELECT recipient_id, status FROM BloodRequests WHERE request_id = ?',
-                [request_id]
-            );
-
-            if (!requestRows[0]) {
-                await connection.rollback();
-                connection.release();
-                return res.status(404).json({ message: 'Request not found.' });
-            }
-
-            if (requestRows[0].recipient_id !== recipient_id) {
-                await connection.rollback();
-                connection.release();
-                return res.status(403).json({ message: 'Forbidden: You do not own this request.' });
-            }
-
-            // Optional: Only allow deletion if 'active' or 'on_hold'
-            // if (requestRows[0].status === 'fulfilled') {
-            //     await connection.rollback();
-            //     connection.release();
-            //     return res.status(400).json({ message: 'Cannot delete a fulfilled request.' });
-            // }
-
-            // 2. Delete all associated notifications (from RequestNotifications)
-            await connection.query(
-                'DELETE FROM RequestNotifications WHERE request_id = ?',
-                [request_id]
-            );
-
-            // 3. Delete all associated donation records (from Donations)
-            // (This is important for data integrity)
-            await connection.query(
-                'DELETE FROM Donations WHERE request_id = ?',
-                [request_id]
-            );
-
-            // 4. Now, delete the main blood request
-            await connection.query(
-                'DELETE FROM BloodRequests WHERE request_id = ?',
-                [request_id]
-            );
-
-            await connection.commit();
-            connection.release();
-            res.json({ message: 'Request deleted successfully.' });
-
-        } catch (innerErr) {
-            await connection.rollback();
-            connection.release();
-            throw innerErr;
+        const [request] = await connection.query("SELECT status, recipient_id FROM BloodRequests WHERE request_id = ?", [request_id]);
+        if (!request[0] || request[0].status !== "active") {
+            return res.status(400).json({ message: "Request no longer active." });
         }
 
+        await connection.query("UPDATE BloodRequests SET status = 'on_hold' WHERE request_id = ?", [request_id]);
+        await connection.query("INSERT INTO RequestNotifications (request_id, donor_id, status) VALUES (?,?,'accepted') ON DUPLICATE KEY UPDATE status='accepted'", [request_id, donor_id]);
+
+        // Notify recipient (Email)
+        const [recip] = await connection.query("SELECT email, name FROM Users WHERE user_id=?", [request[0].recipient_id]);
+        const [donor] = await connection.query("SELECT name, contact_phone FROM Users WHERE user_id=?", [donor_id]);
+        
+        await sgMail.send({
+            to: recip[0].email,
+            from: process.env.SENDGRID_FROM_EMAIL,
+            subject: "Donor Accepted Your Request!",
+            html: `<p>${donor[0].name} accepted. Contact: ${donor[0].contact_phone || "N/A"}</p>`,
+        });
+
+        await connection.commit();
+        res.json({ message: "Request accepted!" });
     } catch (err) {
-        console.error('Error deleting request:', err);
-        res.status(500).json({ message: 'Server error while deleting request' });
+        await connection.rollback();
+        res.status(500).json({ message: "Error" });
+    } finally {
+        connection.release();
     }
 });
 
-// --- Start the Server ---
-app.listen(port, () => {
-    console.log(`Backend server running at http://localhost:${port}`);
+/** Recipient: Fulfill Request */
+app.post("/api/requests/:requestId/fulfill", authMiddleware, async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const request_id = req.params.requestId;
+        const recipient_id = req.user.id;
+
+        const [request] = await connection.query("SELECT status, recipient_id FROM BloodRequests WHERE request_id=?", [request_id]);
+        if (!request[0] || request[0].recipient_id !== recipient_id || request[0].status !== "on_hold") {
+            return res.status(400).json({ message: "Invalid action." });
+        }
+
+        const [notif] = await connection.query("SELECT donor_id FROM RequestNotifications WHERE request_id=? AND status='accepted'", [request_id]);
+        const donor_id = notif[0].donor_id;
+
+        await connection.query("UPDATE BloodRequests SET status='fulfilled' WHERE request_id=?", [request_id]);
+        await connection.query("UPDATE RequestNotifications SET status='fulfilled' WHERE request_id=? AND donor_id=?", [request_id, donor_id]);
+        await connection.query("INSERT INTO Donations (donor_id, recipient_id, request_id, donation_date) VALUES (?,?,?,NOW())", [donor_id, recipient_id, request_id]);
+        await connection.query("UPDATE Users SET last_donation_date=NOW() WHERE user_id=?", [donor_id]);
+
+        await connection.commit();
+        res.json({ message: "Fulfilled!" });
+    } catch (err) {
+        await connection.rollback();
+        res.status(500).json({ message: "Server error" });
+    } finally {
+        connection.release();
+    }
 });
+
+/** Delete Request (Recipient Action) */
+app.delete("/api/requests/:requestId", authMiddleware, async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const request_id = req.params.requestId;
+        const recipient_id = req.user.id;
+
+        const [row] = await connection.query("SELECT recipient_id FROM BloodRequests WHERE request_id=?", [request_id]);
+        if (!row[0] || row[0].recipient_id !== recipient_id) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+
+        await connection.query("DELETE FROM RequestNotifications WHERE request_id=?", [request_id]);
+        await connection.query("DELETE FROM Donations WHERE request_id=?", [request_id]);
+        await connection.query("DELETE FROM BloodRequests WHERE request_id=?", [request_id]);
+
+        await connection.commit();
+        res.json({ message: "Deleted" });
+    } catch (err) {
+        await connection.rollback();
+        res.status(500).json({ message: "Error" });
+    } finally {
+        connection.release();
+    }
+});
+
+/** Get My Requests */
+app.get("/api/requests/myrequests", authMiddleware, async (req, res) => {
+    try {
+        const [rows] = await pool.query("SELECT br.*, bt.type AS blood_type FROM BloodRequests br JOIN BloodTypes bt ON br.blood_type_id=bt.blood_type_id WHERE br.recipient_id=? ORDER BY br.date_requested DESC", [req.user.id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ message: "Error" });
+    }
+});
+
+/** Get My Accepted Requests (Donor Action) */
+app.get("/api/requests/accepted", authMiddleware, async (req, res) => {
+    try {
+        const sql = `SELECT br.request_id, br.city, br.reason, br.date_requested, br.status AS request_status, 
+                    u.name AS recipient_name, u.contact_phone AS recipient_phone, bt.type AS blood_type
+                    FROM RequestNotifications rn JOIN BloodRequests br ON rn.request_id=br.request_id
+                    JOIN Users u ON br.recipient_id=u.user_id JOIN BloodTypes bt ON br.blood_type_id=bt.blood_type_id
+                    WHERE rn.donor_id=? AND rn.status='accepted' AND br.status='on_hold'`;
+        const [rows] = await pool.query(sql, [req.user.id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ message: "Error" });
+    }
+});
+
+// --- Start Server ---
+app.listen(PORT, () => console.log(`🚀 [Server]: Server running on port ${PORT}`));
