@@ -288,6 +288,49 @@ button:disabled {
     transform: none;
 }
 
+/* --- Forgot Password Link (Login Page) --- */
+.forgot-password-wrapper {
+    text-align: right;
+    margin-top: -10px; /* Pulls it slightly closer to the password field */
+    margin-bottom: 22px;
+}
+
+.forgot-password-wrapper a {
+    color: var(--primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.forgot-password-wrapper a:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+/* --- Auth Redirect Links --- */
+.auth-redirect {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-light); /* Adds a clean separator line */
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.auth-redirect a {
+    color: var(--primary);
+    font-weight: 700;
+    margin-left: 4px;
+    transition: all 0.3s ease;
+}
+
+.auth-redirect a:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
+    text-underline-offset: 4px; /* Drops the underline slightly for a cleaner look */
+}
+
 /* Dashboard Profile Layout */
 .profile-header {
     display: flex;
