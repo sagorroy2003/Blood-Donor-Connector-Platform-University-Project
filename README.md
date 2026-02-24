@@ -62,6 +62,45 @@ This project leverages a modern, scalable "PERN-ish" stack hosted entirely on th
 
 ---
 
+## 🗂️ Project Structure
+
+<details>
+<summary><strong>Click to expand full directory tree</strong></summary>
+
+```bash
+Blood-Donor-Connector-Platform-University-Project/
+├── Backend/
+│   ├── authMiddleware.js
+│   ├── server.js
+│   ├── package.json
+│   └── package-lock.json
+│
+├── Frontend/
+│   ├── image/                  # Static assets (PNG/JPG files)
+│   ├── analytics.js
+│   ├── dashboard.html
+│   ├── dashboard.js
+│   ├── index.html
+│   ├── index.js
+│   ├── login.html
+│   ├── login.js
+│   ├── register.html
+│   ├── register.js
+│   ├── forgot-password.html
+│   ├── reset-password.html
+│   ├── verify-email.html
+│   ├── check-email.html
+│   ├── style.css
+│   ├── toast.js
+│   ├── favicon-32x32.png
+│   └── vercel.json
+│
+├── .gitignore
+├── LICENSE
+└── README.md
+```
+</details>
+
 ## 📸 Screenshots
 
 <div align="center">
