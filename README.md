@@ -62,6 +62,48 @@ This project leverages a modern, scalable "PERN-ish" stack hosted entirely on th
 
 ---
 
+## 🗂️ Project Structure
+
+<details>
+<summary><strong>Click to expand full directory tree</strong></summary>
+
+```bash
+Blood-Donor-Connector-Platform-University-Project/
+├── Backend/
+│   ├── authMiddleware.js
+│   ├── server.js
+│   ├── package.json
+│   └── package-lock.json
+│
+├── Frontend/
+│   ├── image/                  # Static assets (PNG/JPG files)
+│   ├── analytics.js
+│   ├── dashboard.html
+│   ├── dashboard.js
+│   ├── index.html
+│   ├── index.js
+│   ├── login.html
+│   ├── login.js
+│   ├── register.html
+│   ├── register.js
+│   ├── forgot-password.html
+│   ├── reset-password.html
+│   ├── verify-email.html
+│   ├── check-email.html
+│   ├── style.css
+│   ├── toast.js
+│   ├── favicon-32x32.png
+│   └── vercel.json
+│
+├── .gitignore
+├── LICENSE
+└── README.md
+```
+</details>
+
+# ER Diagram 
+[![](https://mermaid.ink/img/pako:eNqdVF1v2jAU_SuWn1YJGBRGSt5QyzQ0raoqNG0VUmTim8QisTPb6coo_712PvgILlLnN997z_E9x77e4lBQwD4GecdILEm25MisQoFU6PW12xVbtEqFoBL-FKC0Qj5a4oysQaFPRCEJIcsZcP25LgB5tcQOEio40UzwNoGJi3cgNSMXmkUsPEKbQ4E9g2pQZYN6k8MeWvHYWgoR463SvRZnb1GRRixNgaLV5iLs3f60ZHFsGrDoY13bamPX_H5RBgNG0cP3Q_zn9PH22_QRcZLBeRQywtLzcE6U-iskDRKikkP6brqYIUo0BCIKVkzq5BwaA6cgz-Oh4JqEOsgTweG07dKLwNptm__qaD5kenOILub3vy2OqeAZpLEK6DmkylQmBlqsgZ_qWMx_zIzhCnSVDeAlZ2ZfVe0an49ewvZS1y7Lbc5Ft7_2FmMdb9NVqXoqKofMk3gQjBsKLaqn0KvvvnlfF9yb_bJ8RAmXI-XtNpPnsFVpoou2SYfn3lLUJFySyjn9iJyWRS3YibPHsIO0phmrsaXAOXktMcdJ9x19uLf_8sF5FbiDY8ko9rUsoIMzkGayzRaXIswPkoCZf1x-YESuLZ_F5IQ_CZE1MCmKOMF-RFJldkVunaq_8X1JOd-3ouAa-6PBpOTA_ha_YL_b7_Xtmown_cHgZuSNvOF4PB518Ab7Xs-7uf4ynPQnw4HX967H0PV2HfyvPJ4Xabp7AyNQ8-w?type=png)](https://mermaid.live/edit#pako:eNqdVF1v2jAU_SuWn1YJGBRGSt5QyzQ0raoqNG0VUmTim8QisTPb6coo_712PvgILlLnN997z_E9x77e4lBQwD4GecdILEm25MisQoFU6PW12xVbtEqFoBL-FKC0Qj5a4oysQaFPRCEJIcsZcP25LgB5tcQOEio40UzwNoGJi3cgNSMXmkUsPEKbQ4E9g2pQZYN6k8MeWvHYWgoR463SvRZnb1GRRixNgaLV5iLs3f60ZHFsGrDoY13bamPX_H5RBgNG0cP3Q_zn9PH22_QRcZLBeRQywtLzcE6U-iskDRKikkP6brqYIUo0BCIKVkzq5BwaA6cgz-Oh4JqEOsgTweG07dKLwNptm__qaD5kenOILub3vy2OqeAZpLEK6DmkylQmBlqsgZ_qWMx_zIzhCnSVDeAlZ2ZfVe0an49ewvZS1y7Lbc5Ft7_2FmMdb9NVqXoqKofMk3gQjBsKLaqn0KvvvnlfF9yb_bJ8RAmXI-XtNpPnsFVpoou2SYfn3lLUJFySyjn9iJyWRS3YibPHsIO0phmrsaXAOXktMcdJ9x19uLf_8sF5FbiDY8ko9rUsoIMzkGayzRaXIswPkoCZf1x-YESuLZ_F5IQ_CZE1MCmKOMF-RFJldkVunaq_8X1JOd-3ouAa-6PBpOTA_ha_YL_b7_Xtmown_cHgZuSNvOF4PB518Ab7Xs-7uf4ynPQnw4HX967H0PV2HfyvPJ4Xabp7AyNQ8-w)
+
 ## 📸 Screenshots
 
 <div align="center">
