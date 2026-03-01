@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blood Donor Platform — Animated Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0f172a;
+            font-family: 'Segoe UI', sans-serif;
+            color: #f1f5f9;
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.6rem;
+            color: #f87171;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 30px;
+        }
+
+        /* ── LEGEND ── */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: #cbd5e1;
+        }
+
+        .legend-line {
+            width: 40px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .legend-line.red {
+            background: #f87171;
+        }
+
+        .legend-line.green {
+            background: #4ade80;
+        }
+
+        /* ── LAYOUT ── */
+        .diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            position: relative;
+        }
+
+        /* ── NODES ── */
+        .node {
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: center;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: default;
+            z-index: 10;
+        }
+
+        .node:hover {
+            transform: scale(1.04);
+            box-shadow: 0 0 24px rgba(248, 113, 113, 0.5);
+        }
+
+        .user-node {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            border: 2px solid #60a5fa;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+            width: 220px;
+            font-size: 1rem;
+        }
+
+        /* ── SWIMLANES ── */
+        .swimlane {
+            border: 2px solid #00838f;
+            border-radius: 14px;
+            padding: 14px 20px 20px;
+            background: rgba(255, 248, 230, 0.05);
+            position: relative;
+            width: 780px;
+        }
+
+        .swimlane-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #fbbf24;
+            margin-bottom: 14px;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .boxes-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .box {
+            background: linear-gradient(135deg, #78350f, #92400e);
+            border: 1.5px solid #f59e0b;
+            border-radius: 10px;
+            padding: 9px 20px;
+            font-size: 0.82rem;
+            color: #fef3c7;
+            text-align: center;
+            width: 300px;
+            transition: all 0.2s;
+        }
+
+        .box:hover {
+            background: linear-gradient(135deg, #92400e, #b45309);
+            box-shadow: 0 0 14px rgba(245, 158, 11, 0.4);
+            transform: scale(1.03);
+        }
+
+        /* ── BACKEND ROW ── */
+        .backend-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .backend-col {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .box.auth-mid {
+            width: 100%;
+            background: linear-gradient(135deg, #1e3a5f, #1e40af);
+            border-color: #60a5fa;
+            color: #dbeafe;
+        }
+
+        /* ── BOTTOM ROW ── */
+        .bottom-row {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        .swimlane.db-lane {
+            width: 580px;
+        }
+
+        .swimlane.ext-lane {
+            width: 300px;
+        }
+
+        .db-tables {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .db-table {
+            background: linear-gradient(135deg, #4a1942, #6b21a8);
+            border: 1.5px solid #a855f7;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 0.78rem;
+            color: #f3e8ff;
+            text-align: center;
+        }
+
+        /* ── ARROWS (SVG overlays) ── */
+        .arrow-wrap {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            position: relative;
+            height: 60px;
+        }
+
+        /* ── ANIMATED PACKET ── */
+        @keyframes flow-down {
+            0% {
+                top: 0%;
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
+        }
+
+        @keyframes flow-up {
+            0% {
+                top: 100%;
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                top: 0%;
+                opacity: 0;
+            }
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 22px rgba(248, 113, 113, 0.9);
+            }
+        }
+
+        @keyframes pulse-glow-green {
+
+            0%,
+            100% {
+                box-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 22px rgba(74, 222, 128, 0.9);
+            }
+        }
+
+        /* ── CONNECTOR ── */
+        .connector {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            position: relative;
+            height: 80px;
+            width: 780px;
+        }
+
+        .connector-line {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            width: 180px;
+        }
+
+        .connector-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+
+        .label-red {
+            color: #fca5a5;
+            background: rgba(185, 53, 50, 0.25);
+        }
+
+        .label-green {
+            color: #86efac;
+            background: rgba(0, 119, 0, 0.25);
+        }
+
+        .v-line {
+            width: 3px;
+            flex: 1;
+            border-radius: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .v-line.red-line {
+            background: rgba(248, 113, 113, 0.25);
+        }
+
+        .v-line.green-line {
+            background: rgba(74, 222, 128, 0.25);
+        }
+
+        .packet {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .packet.red {
+            background: #f87171;
+            box-shadow: 0 0 8px #f87171;
+            animation: flow-down 2s ease-in-out infinite;
+        }
+
+        .packet.green {
+            background: #4ade80;
+            box-shadow: 0 0 8px #4ade80;
+            animation: flow-up 2s ease-in-out infinite;
+        }
+
+        /* delays so packets stagger nicely */
+        .p-d1 {
+            animation-delay: 0s;
+        }
+
+        .p-d2 {
+            animation-delay: 0.5s;
+        }
+
+        .p-d3 {
+            animation-delay: 1s;
+        }
+
+        .p-d4 {
+            animation-delay: 1.5s;
+        }
+
+        .arrow-head-down {
+            font-size: 14px;
+            color: #f87171;
+            margin-top: -4px;
+        }
+
+        .arrow-head-up {
+            font-size: 14px;
+            color: #4ade80;
+            margin-top: -4px;
+        }
+
+        /* ── NODE ACTIVE PULSE ── */
+        .user-node {
+            animation: pulse-glow 3s ease-in-out infinite;
+        }
+
+        /* ── STEP LABELS ── */
+        .step-badge {
+            display: inline-block;
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 999px;
+            padding: 1px 8px;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-right: 6px;
+        }
+
+        /* scrollable on small screens */
+        .scroll-wrap {
+            overflow-x: auto;
+            padding-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🩸 Blood Donor Connector Platform</h1>
+    <p class="subtitle">Animated System Architecture — Full Data Flow</p>
+
+    <!-- LEGEND -->
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-line red"></div>
+            <span>Request / Send Data</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-line green"></div>
+            <span>Response / Return Data</span>
+        </div>
+    </div>
+
+    <div class="scroll-wrap">
+        <div class="diagram">
+
+            <!-- ① USER -->
+            <div class="node user-node">👤 User (Browser)</div>
+
+            <!-- User ↕ Frontend -->
+            <div class="connector">
+                <div class="connector-line">
+                    <span class="connector-label label-red">① HTTP
+                        Request</span>
+                    <div class="v-line red-line">
+                        <div class="packet red p-d1"></div>
+                        <div class="packet red p-d3"></div>
+                    </div>
+                    <span class="arrow-head-down">▼</span>
+                </div>
+                <div class="connector-line">
+                    <span class="connector-label label-green">② HTML/CSS/JS
+                        Rendered</span>
+                    <div class="v-line green-line">
+                        <div class="packet green p-d2"></div>
+                        <div class="packet green p-d4"></div>
+                    </div>
+                    <span class="arrow-head-up">▲</span>
+                </div>
+            </div>
+
+            <!-- ② FRONTEND -->
+            <div class="swimlane">
+                <div class="swimlane-title">🌐 Frontend — Vercel</div>
+                <div class="boxes-col">
+                    <div class="box">index.html &nbsp;(Public Home)</div>
+                    <div class="box">login.html &nbsp;/&nbsp;
+                        register.html</div>
+                    <div class="box">dashboard.html &nbsp;(Protected)</div>
+                    <div class="box">forgot-password &nbsp;/&nbsp;
+                        reset-password</div>
+                    <div class="box">verify-email.html</div>
+                </div>
+            </div>
+
+            <!-- Frontend ↕ Backend -->
+            <div class="connector">
+                <div class="connector-line">
+                    <span class="connector-label label-red">③ REST API Call
+                        + JWT</span>
+                    <div class="v-line red-line">
+                        <div class="packet red p-d2"></div>
+                        <div class="packet red p-d4"></div>
+                    </div>
+                    <span class="arrow-head-down">▼</span>
+                </div>
+                <div class="connector-line">
+                    <span class="connector-label label-green">④ JSON
+                        Response</span>
+                    <div class="v-line green-line">
+                        <div class="packet green p-d1"></div>
+                        <div class="packet green p-d3"></div>
+                    </div>
+                    <span class="arrow-head-up">▲</span>
+                </div>
+            </div>
+
+            <!-- ③ BACKEND -->
+            <div class="swimlane">
+                <div class="swimlane-title">⚙️ Backend API — Render
+                    &nbsp;(Node.js + Express)</div>
+                <div class="backend-inner">
+
+                    <!-- Left: Protected -->
+                    <div class="backend-col">
+                        <div class="box" style="width:100%">
+                            🛡️ Protected Routes (JWT)<br />
+                            <small>/api/profile<br />/api/requests<br />/api/donations/myhistory</small>
+                        </div>
+                    </div>
+
+                    <!-- Center: Public + Auth Middleware -->
+                    <div class="backend-col">
+                        <div class="box" style="width:100%">
+                            🔓 Public Routes<br />
+                            <small>/api/requests/public<br />/api/bloodtypes</small>
+                        </div>
+                        <div class="box auth-mid" style="width:100%">
+                            authMiddleware.js<br />
+                            <small>JWT Verification ✓ / ✗ 401</small>
+                        </div>
+                    </div>
+
+                    <!-- Right: Auth Routes -->
+                    <div class="backend-col">
+                        <div class="box" style="width:100%">
+                            🔐 Auth Routes<br />
+                            <small>/api/register
+                                &nbsp;/api/login<br />/api/verify-email<br />/api/forgot-password<br />/api/reset-password</small>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Backend ↕ DB + SendGrid side by side -->
+            <div
+                style="display:flex; gap:60px; justify-content:center; align-items:flex-start; width:100%; max-width:1100px; margin-top:0;">
+
+                <!-- Left column: Backend → DB -->
+                <div style="display:flex;flex-direction:column;align-items:center;">
+                    <div class="connector" style="width:300px; gap:30px;">
+                        <div class="connector-line">
+                            <span class="connector-label label-red">⑤ SQL
+                                Query</span>
+                            <div class="v-line red-line">
+                                <div class="packet red p-d1"></div>
+                                <div class="packet red p-d3"></div>
+                            </div>
+                            <span class="arrow-head-down">▼</span>
+                        </div>
+                        <div class="connector-line">
+                            <span class="connector-label label-green">⑥
+                                Query Result</span>
+                            <div class="v-line green-line">
+                                <div class="packet green p-d2"></div>
+                                <div class="packet green p-d4"></div>
+                            </div>
+                            <span class="arrow-head-up">▲</span>
+                        </div>
+                    </div>
+
+                    <!-- DATABASE -->
+                    <div class="swimlane db-lane" style="width:480px;">
+                        <div class="swimlane-title">🗄️ TiDB Cloud —
+                            Distributed SQL (SSL)</div>
+                        <div class="db-tables">
+                            <div class="db-table">👤 Users</div>
+                            <div class="db-table">🩸 BloodRequests</div>
+                            <div class="db-table">🔔
+                                RequestNotifications</div>
+                            <div class="db-table">✅ donations</div>
+                            <div class="db-table">🅱️ BloodTypes</div>
+                            <div class="db-table"
+                                style="background:rgba(107,33,168,0.15);border-style:dashed;color:#a78bfa;font-size:0.7rem;">
+                                SSL
+                                Encrypted Pool</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right column: Backend → SendGrid → User -->
+                <div style="display:flex;flex-direction:column;align-items:center;">
+                    <div class="connector" style="width:240px; gap:20px;">
+                        <div class="connector-line" style="width:200px;">
+                            <span class="connector-label label-red">⑦
+                                Fire-and-Forget Email</span>
+                            <div class="v-line red-line">
+                                <div class="packet red p-d2"></div>
+                                <div class="packet red p-d4"></div>
+                            </div>
+                            <span class="arrow-head-down">▼</span>
+                        </div>
+                    </div>
+
+                    <!-- SENDGRID -->
+                    <div class="swimlane ext-lane" style="width:280px;">
+                        <div class="swimlane-title">☁️ External
+                            Services</div>
+                        <div class="box"
+                            style="width:100%;background:linear-gradient(135deg,#14532d,#166534);border-color:#4ade80;color:#dcfce7;">
+                            📧 SendGrid API<br />
+                            <small>
+                                ✉ Verification Emails<br />
+                                ✉ Password Reset Emails<br />
+                                ✉ Donor Alert Emails<br />
+                                ✉ Acceptance Emails
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="connector" style="width:240px; gap:20px;">
+                        <div class="connector-line" style="width:200px;">
+                            <span class="connector-label label-green">⑧
+                                Email → User Inbox</span>
+                            <div class="v-line green-line">
+                                <div class="packet green p-d1"></div>
+                                <div class="packet green p-d3"></div>
+                            </div>
+                            <span class="arrow-head-up">▲</span>
+                        </div>
+                    </div>
+
+                    <!-- Mini user reminder -->
+                    <div class="node user-node"
+                        style="width:180px;font-size:0.85rem;padding:8px 12px;animation:pulse-glow-green 3s ease-in-out infinite;">
+                        👤 User Inbox ✉
+                    </div>
+                </div>
+
+            </div><!-- end bottom row -->
+
+        </div><!-- end diagram -->
+    </div><!-- end scroll-wrap -->
+
+</body>
+
+</html>
